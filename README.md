@@ -33,7 +33,7 @@ Long agent runs fail in predictable ways. sdd-pilot has a mitigation for each:
 Requires Claude Code and Python 3.11+ (standard library only; nothing to `pip install`).
 
 ```text
-/plugin marketplace add <your-github-user>/sdd-pilot
+/plugin marketplace add Dinusha-Ekanayake/sdd-pilot
 /plugin install sdd-pilot@sdd-pilot
 ```
 
