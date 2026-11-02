@@ -1,0 +1,10 @@
+[project]
+branch_prefix = ""      # the example is not a git repo of its own
+
+[[check]]
+name = "tests"
+cmd = ["python", "-m", "pytest", "-q", "--tb=line"]
+keep = '^(FAILED|ERROR)|\.py:\d+: '
+
+[brief]
+graphify = false

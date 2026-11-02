@@ -1,0 +1,29 @@
+# sdd-pilot configuration (generic preset). See docs/configuration.md in the sdd-pilot repo.
+# Fill in [[check]] with your project's lint, type-check and test commands.
+
+[project]
+specs_dir = "specs"
+branch_prefix = "feature/{spec}-"
+status_regex = '(\*\*Status:\*\*\s*)([^\n]*)'
+approved_word = "Approved"
+
+# Example:
+# [[check]]
+# name = "tests"
+# cmd = ["make", "test"]
+# keep = "FAIL"
+
+[wording]
+banned = []
+scan = ["src"]
+
+[models]
+low = "sonnet"
+high = "opus"
+human = "opus"
+
+[limits]
+max_review_rounds = 2
+max_fix_attempts = 3
+max_agent_runs = 60
+restart_after_tasks = 4

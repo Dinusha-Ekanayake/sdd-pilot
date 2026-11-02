@@ -1,0 +1,13 @@
+{
+  "name": "sdd-pilot",
+  "description": "Spec-driven development on autopilot for Claude Code.",
+  "owner": { "name": "Dinusha Ekanayake" },
+  "plugins": [
+    {
+      "name": "sdd-pilot",
+      "source": "./",
+      "description": "Spec-driven development on autopilot for Claude Code, with phone approvals via Telegram.",
+      "category": "development"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+# sdd-pilot configuration (Python preset). See docs/configuration.md in the sdd-pilot repo.
+
+[project]
+specs_dir = "specs"
+branch_prefix = "feature/{spec}-"  # "" turns the branch check off
+# The spec's status line, e.g. "- **Status:** Draft". Group 2 is the status value.
+status_regex = '(\*\*Status:\*\*\s*)([^\n]*)'
+approved_word = "Approved"
+
+# The quality gate. Each step is a command (a list of arguments, no shell).
+# `keep` is a regex for the output lines worth showing when the step fails.
+[[check]]
+name = "lint"
+cmd = ["{python}", "-m", "ruff", "check", ".", "--output-format", "concise"]
+keep = ':\d+:\d+:'
+
+[[check]]
+name = "format"
+cmd = ["{python}", "-m", "ruff", "format", "--check", "."]
+keep = '^Would reformat'
+
+[[check]]
+name = "types"
+cmd = ["{python}", "-m", "mypy", "."]
+keep = 'error:'
+
+[[check]]
+name = "tests"
+cmd = ["{python}", "-m", "pytest", "-q", "--tb=line", "--cov", "--cov-report=term"]
+keep = '^(FAILED|ERROR)|Required test coverage|\.py:\d+: '
+
+# Formatters run on each file Claude edits, by suffix. {file} is the edited path.
+[format]
+".py" = [
+  ["{python}", "-m", "ruff", "format", "{file}"],
+  ["{python}", "-m", "ruff", "check", "--fix", "--select", "I", "{file}"],
+]
+
+# Wording the project must never use (case-insensitive regexes). A match right after
+# "not", "never" or "no" is allowed. Mark a line "sdd: allow-wording" to allow it.
+[wording]
+banned = []
+scan = ["src"]
+
+# Which model reviews which risk. Implementer is Sonnet, planner Opus, clerk Haiku.
+[models]
+low = "sonnet"
+high = "opus"
+human = "opus"
+
+[limits]
+max_review_rounds = 2
+max_fix_attempts = 3
+max_agent_runs = 60
+restart_after_tasks = 4
+
+[groups]
+max_size = 3   # low-risk tasks per implementer run
+max_high = 2   # high-risk tasks per implementer run
+
+[brief]
+helper_files = []  # e.g. ["tests/conftest.py"]: always shown to the implementer
+graphify = true    # add related nodes when graphify and graphify-out/ exist

@@ -1,0 +1,51 @@
+# sdd-pilot configuration (Node/TypeScript preset). See docs/configuration.md in the sdd-pilot repo.
+
+[project]
+specs_dir = "specs"
+branch_prefix = "feature/{spec}-"  # "" turns the branch check off
+status_regex = '(\*\*Status:\*\*\s*)([^\n]*)'
+approved_word = "Approved"
+
+# Each step is a list of arguments (no shell). Adjust to your package.json scripts.
+[[check]]
+name = "lint"
+cmd = ["npm", "run", "lint", "--silent"]
+keep = '\d+:\d+\s+error'
+
+[[check]]
+name = "types"
+cmd = ["npx", "tsc", "--noEmit"]
+keep = 'error TS'
+
+[[check]]
+name = "tests"
+cmd = ["npm", "test", "--silent"]
+keep = '(FAIL|Error:)'
+
+[format]
+".ts" = [["npx", "prettier", "--write", "{file}"]]
+".tsx" = [["npx", "prettier", "--write", "{file}"]]
+".js" = [["npx", "prettier", "--write", "{file}"]]
+
+[wording]
+banned = []
+scan = ["src"]
+
+[models]
+low = "sonnet"
+high = "opus"
+human = "opus"
+
+[limits]
+max_review_rounds = 2
+max_fix_attempts = 3
+max_agent_runs = 60
+restart_after_tasks = 4
+
+[groups]
+max_size = 3
+max_high = 2
+
+[brief]
+helper_files = []
+graphify = true
