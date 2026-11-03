@@ -5,7 +5,7 @@
 - Runs the commands in `sdd.toml` (`[[check]]`, `[format]`) from the repository root, **only after you have trusted that exact file** with `sdd trust`.
 - Edits files in your project through Claude Code's normal tools and permissions.
 - Writes `.sdd/` (git-ignored), merges permission rules into `.claude/settings.json`, and keeps a trust store in `~/.claude/sdd-pilot/trust.json` (or `$SDD_HOME`).
-- With `[graphify] auto = true` (the default), installs a pinned version of the `graphifyy` package with `uv tool`, `pipx` or `pip --user`, and builds a local code graph in `graphify-out/`. Set `auto = false` to turn this off.
+- With `[graphify] auto = true` (the default) and a **trusted** `sdd.toml`, installs a pinned version of the `graphifyy` package with `uv tool`, `pipx` or `pip --user` (run from your home directory, in isolated mode), and builds a local code graph in `graphify-out/`. Set `auto = false` to turn this off.
 
 It never commits, pushes, opens a PR or reads secrets on its own.
 
@@ -19,22 +19,26 @@ Check commands with a path separator are looked up in the repository; bare names
 
 | Gate | How it is enforced |
 |---|---|
-| Spec approval | `sdd approve` is an `ask` rule. It stores the sha256 of the approved `spec.md` in the trust store. `sdd start` refuses a spec whose status line was edited by hand or whose content changed after approval, and a mid-run change halts the run |
+| Spec approval | `sdd approve` is an `ask` rule. It stores a hash of `spec.md`, `plan.md` and the task definitions (id, text, test, risk) in the trust store. `sdd start` refuses a spec whose status line was edited by hand or whose content changed after approval, and a mid-run change halts the run |
+| Task table | Statuses are recorded in the trust store by `start` and `done`; a hand-ticked, deleted or added row halts the run, and the Stop hook never continues on such a table |
 | Trust, start, resume | `ask` rules. Starting again or resuming would reset counters, so the model cannot do it alone; `start` also refuses while a run is active |
-| Ticking a task | `sdd done` refuses unless the last passing gate and the last clean review were both recorded for the code as it is now (a fingerprint of the working tree) |
+| Ticking a task | `sdd done` refuses unless the last passing gate and the last clean review were both recorded for the code as it is now (a fingerprint of the working tree, taken before and after the gate) |
 | Gate config | During a run, changing a file listed in `[project] guard` fails `sdd check` until you review it and run `sdd trust`. The reviewer also flags new skip, ignore and threshold changes |
-| Run state | A PreToolUse hook denies Edit, Write, MultiEdit and NotebookEdit on `.sdd/` and on the trust store; `init` adds matching deny rules |
+| Run state and settings | A PreToolUse hook denies Edit, Write, MultiEdit and NotebookEdit on `.sdd/`, the trust store and `.claude/settings*.json` (compared by file identity, so aliases are caught); `init` adds matching deny rules. State without the run id `sdd start` recorded is ignored |
+| Repository-shipped files | `{python}` never resolves to a committed virtual environment. sdd-pilot refuses to write through symlinks below the project root |
 | Caps | Failures are recorded against the group in flight by default, and a SubagentStop hook counts subagents, so the agent cap does not depend on the model reporting them |
 | Commit, push, PR | `git commit`, `git push`, `gh pr create`, `gh pr merge` are `ask` rules. Over Telegram the prompt is relayed to the paired chat |
 
-`sdd doctor` fails when the `sdd` gate rules are missing or when `defaultMode` is `bypassPermissions`, since prompts do not appear in that mode.
+`sdd doctor` fails when the `sdd` gate rules are missing or when `defaultMode` is `bypassPermissions`, since prompts do not appear in that mode, and warns when sandboxing is off or `SDD_HOME`/`SDD_PYTHON` are set in Claude settings.
 
 ## What is not covered
 
+- **The gate runs project code as you.** `sdd check` is allow-listed and runs the project's tests, which the implementer writes. Test code can do anything your account can, including editing the trust store or `.sdd/`. Only Claude Code's sandbox (`"sandbox": {"enabled": true}`, limiting writes to the project) contains that; turn it on for unattended runs. sdd-pilot only makes sure a pass is recorded for the tree the gate actually saw.
 - The guard hook watches file tools. A shell command writing into `.sdd/` is not parsed, but arbitrary shell commands are not allow-listed, so they prompt.
+- The trust store is a plain file in your home directory. It keeps out file-tool edits from agents, not code that runs as you (see above) or someone with access to your account.
 - The `via` field in `.sdd/approvals.log` is reported by the caller. The permission prompt is the real gate.
-- The trust store is a plain file in your home directory. It stops agents working inside the project, not someone with access to your account.
 - Review verdicts are reported by the orchestrator from the reviewer's output.
+- graphify is pinned by version, not by hash. A trusted `sdd.toml` chooses the version.
 
 ## Telegram
 
