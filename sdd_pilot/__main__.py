@@ -87,11 +87,20 @@ def _utf8_output() -> None:
 
 
 def _hook(command: str) -> int:
-    """Hooks never fail the session: outside an sdd project they do nothing."""
+    """Hooks never fail the session: outside an sdd project they do nothing, and an error
+    inside one is reported on stderr instead of breaking the user's turn."""
     try:
         cfg = cfg_mod.load(_start_dir())
     except (ValueError, OSError):
         return 0
+    try:
+        _dispatch_hook(command, cfg)
+    except Exception as error:  # noqa: BLE001 - a hook must never take the session down
+        print(f"sdd-pilot {command}: {type(error).__name__}: {error}", file=sys.stderr)
+    return 0
+
+
+def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
     if command == "hook-stop":
         decision = stop_decision(cfg)
         if decision:
@@ -108,7 +117,6 @@ def _hook(command: str) -> int:
         write_shim(cfg.root, LAUNCHER)
         context = {"hookEventName": "SessionStart", "additionalContext": session_context()}
         print(json.dumps({"hookSpecificOutput": context}))
-    return 0
 
 
 def _check(cfg: cfg_mod.Config, task: str | None) -> int:

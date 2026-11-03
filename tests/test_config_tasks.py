@@ -43,7 +43,10 @@ def test_check_steps_and_format_parsed(repo: Path) -> None:
 @pytest.mark.parametrize(
     ("raw", "match"),
     [
-        ({"check": [{"name": "x", "cmd": "pytest -q"}]}, "list of arguments"),
+        ({"check": [{"name": "x", "cmd": "pytest -q"}]}, "non-empty list"),
+        ({"check": [{"name": "x", "cmd": []}]}, "non-empty list"),
+        ({"check": [{"name": "x", "cmd": ["x"], "timeout": 0}]}, "timeout"),
+        ({"check": [{"name": "x", "cmd": ["x"], "keep": "("}]}, "missing \\)"),
         ({"check": [{"cmd": ["x"]}]}, "name and a cmd"),
         ({"models": {"medium": "opus"}}, "keys must be"),
         ({"limits": {"max_fix_attempts": 0}}, "at least 1"),

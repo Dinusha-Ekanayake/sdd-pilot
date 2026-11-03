@@ -12,7 +12,6 @@
       "Bash(bash .sdd/bin/sdd trust:*)",
       "Bash(bash .sdd/bin/sdd resume:*)",
       "Bash(bash .sdd/bin/sdd start:*)",
-      "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr merge:*)"

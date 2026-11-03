@@ -53,9 +53,12 @@ def run_step(root: Path, step: CheckStep) -> StepResult:
             encoding="utf-8",
             errors="replace",
             check=False,
+            timeout=step.timeout,
         )
     except FileNotFoundError as error:
         return StepResult(step.name, False, (f"command not found: {error}",))
+    except subprocess.TimeoutExpired:
+        return StepResult(step.name, False, (f"timed out after {step.timeout}s",))
     lines = (proc.stdout + proc.stderr).splitlines()
     keep = re.compile(step.keep) if step.keep else None
     detail = [line for line in lines if keep and keep.search(line)][:MAX_DETAIL_LINES]

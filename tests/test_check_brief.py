@@ -233,3 +233,9 @@ def test_guard_is_off_outside_a_run(repo: Path) -> None:
 def test_guard_files_are_configurable(repo: Path) -> None:
     cfg = write_config(repo, '[project]\nguard = ["gate.cfg"]\n')
     assert cfg.guard == ("gate.cfg",)
+
+
+def test_hanging_step_times_out(repo: Path) -> None:
+    step = CheckStep("slow", (PY, "-c", "import time; time.sleep(5)"), timeout=1)
+    result = run_step(repo, step)
+    assert not result.ok and "timed out after 1s" in result.detail[0]

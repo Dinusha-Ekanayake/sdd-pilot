@@ -52,6 +52,7 @@ class CheckStep:
     name: str
     cmd: tuple[str, ...]
     keep: str = ""  # regex for the output lines worth showing; empty keeps the tail
+    timeout: int = 900  # seconds; a hanging step fails instead of stalling the run
 
 
 @dataclass(frozen=True)
@@ -116,14 +117,27 @@ def _tuple(value: Any) -> tuple[str, ...]:
     return tuple(str(v) for v in value or ())
 
 
+def _regex(pattern: str, where: str) -> None:
+    """Compile at load time, so a bad regex fails `sdd` with a clear message, not mid-run."""
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        raise ValueError(f"{where}: invalid regex {pattern!r}: {error}") from error
+
+
 def _steps(raw: list[dict[str, Any]]) -> tuple[CheckStep, ...]:
     steps = []
     for item in raw:
         if "name" not in item or "cmd" not in item:
             raise ValueError("each [[check]] step needs a name and a cmd list")
-        if isinstance(item["cmd"], str):
-            raise ValueError(f"check step {item['name']!r}: cmd must be a list of arguments")
-        steps.append(CheckStep(str(item["name"]), _tuple(item["cmd"]), str(item.get("keep", ""))))
+        if isinstance(item["cmd"], str) or not item["cmd"]:
+            raise ValueError(f"check step {item['name']!r}: cmd must be a non-empty list")
+        timeout = int(item.get("timeout", CheckStep.timeout))
+        if timeout < 1:
+            raise ValueError(f"check step {item['name']!r}: timeout must be at least 1")
+        keep = str(item.get("keep", ""))
+        _regex(keep, f"check step {item['name']!r} keep")
+        steps.append(CheckStep(str(item["name"]), _tuple(item["cmd"]), keep, timeout))
     return tuple(steps)
 
 
@@ -144,7 +158,7 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         raise ValueError("[limits] values must be at least 1")
     wording_raw = raw.get("wording", {})
     for pattern in _tuple(wording_raw.get("banned")):
-        re.compile(pattern)  # fail at load time, not mid-run
+        _regex(pattern, "[wording] banned")
     groups = raw.get("groups", {})
     brief = raw.get("brief", {})
     return Config(

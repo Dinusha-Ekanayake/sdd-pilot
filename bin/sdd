@@ -29,6 +29,23 @@ pick_python() {
   exit 127
 }
 
+# Hooks fire in every project. Without an sdd.toml at or above the project directory they
+# have nothing to do, so leave before starting Python (saves ~100 ms per edit and session).
+has_config() {
+  local dir="${CLAUDE_PROJECT_DIR:-$PWD}"
+  while :; do
+    [ -f "$dir/sdd.toml" ] && return 0
+    local parent
+    parent="$(dirname "$dir")"
+    [ "$parent" = "$dir" ] && return 1
+    dir="$parent"
+  done
+}
+
+case "${1:-}" in
+  hook-*) has_config || exit 0 ;;
+esac
+
 PYTHON="$(pick_python)"
 # shellcheck disable=SC2086  # "py -3" must split into two words
 exec $PYTHON "$PLUGIN_ROOT/bin/sdd_entry.py" "$@"

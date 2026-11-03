@@ -1,6 +1,7 @@
 """Run state in ``.sdd/state.json``: progress, caps, halts and the approval log."""
 
 import json
+import os
 import re
 import subprocess
 from datetime import UTC, date, datetime
@@ -30,7 +31,9 @@ def load(root: Path) -> State | None:
 def save(root: Path, state: State) -> None:
     path = root / STATE_FILE
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    tmp = path.with_suffix(".tmp")  # write then rename, so a crash never leaves half a file
+    tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
 
 
 def require(root: Path) -> State:

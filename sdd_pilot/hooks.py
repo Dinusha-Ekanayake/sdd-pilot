@@ -95,8 +95,8 @@ def format_file(cfg: Config, payload: dict[str, Any]) -> None:
         return
     file_path = str(payload.get("tool_input", {}).get("file_path", ""))
     path = Path(file_path)
-    if not file_path or not path.exists():
-        return
+    if not file_path or not path.is_file() or not _inside(path.resolve(), cfg.root):
+        return  # never run project formatters on files outside the project
     for cmd in cfg.format_cmds.get(path.suffix, ()):
         args = [part.replace("{file}", file_path) for part in cmd]
         try:

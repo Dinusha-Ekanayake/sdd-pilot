@@ -320,3 +320,36 @@ def test_launcher_and_shim_run_the_cli(repo: Path) -> None:
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "No SDD run in this project."
+
+
+def test_hook_errors_never_break_the_session(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    assert main(["start", "009", "--no-branch-check"]) == 0
+    tasks_file(repo).write_text("not a task table\n")  # makes the Stop hook raise inside
+    assert main(["hook-stop"]) == 0
+    assert "sdd-pilot hook-stop: ValueError" in capsys.readouterr().err
+
+
+def test_format_hook_ignores_files_outside_the_project(
+    repo: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    outside = tmp_path_factory.mktemp("elsewhere") / "mod.py"
+    outside.write_text("x = 1\n")
+    format_file(_formatter_cfg(repo), {"tool_input": {"file_path": str(outside)}})
+    assert outside.read_text() == "x = 1\n"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_launcher_skips_python_for_hooks_outside_sdd_projects(tmp_path: Path) -> None:
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(tmp_path), "SDD_PYTHON": "no-such-python"}
+    proc = subprocess.run(
+        [str(shutil.which("bash")), str(ROOT / "bin" / "sdd"), "hook-format"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 0 and proc.stdout == "" and proc.stderr == ""
