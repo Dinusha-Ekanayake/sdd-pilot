@@ -33,6 +33,13 @@ ASK = [
     "Bash(gh pr merge:*)",
 ]
 
+# Defence in depth next to the PreToolUse guard hook: file tools never edit run state
+# or the trust store. "Edit" rules cover every built-in file-editing tool.
+DENY = [
+    "Edit(.sdd/**)",
+    "Edit(~/.claude/sdd-pilot/**)",
+]
+
 
 def _python_exe(root: Path) -> str:
     for candidate in (".venv/Scripts/python.exe", ".venv/bin/python", "venv/bin/python"):
@@ -52,7 +59,7 @@ def _merge_settings(path: Path) -> list[str]:
     settings: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     permissions = settings.setdefault("permissions", {})
     added = []
-    for key, rules in (("allow", ALLOW), ("ask", ASK)):
+    for key, rules in (("allow", ALLOW), ("ask", ASK), ("deny", DENY)):
         existing = permissions.setdefault(key, [])
         for rule in rules:
             if rule not in existing:

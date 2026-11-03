@@ -1,10 +1,18 @@
 {
-  "description": "sdd-pilot: keep an approved run going while it makes progress, format edited files, expose the CLI. No-ops in projects without sdd.toml.",
+  "description": "sdd-pilot: keep an approved run going while it makes progress, guard run state from file edits, format edited files, expose the CLI. No-ops in projects without sdd.toml.",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-session-start", "timeout": 30 }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          { "type": "command", "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-guard", "timeout": 30 }
         ]
       }
     ],

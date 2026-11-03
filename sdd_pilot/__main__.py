@@ -12,13 +12,20 @@ from sdd_pilot import state as run_state
 from sdd_pilot import trust
 from sdd_pilot.brief import write_brief
 from sdd_pilot.check import format_report, run_all, signature
-from sdd_pilot.hooks import SDD, format_file, session_context, stop_decision, write_shim
+from sdd_pilot.hooks import (
+    SDD,
+    format_file,
+    guard_decision,
+    session_context,
+    stop_decision,
+    write_shim,
+)
 from sdd_pilot.init import PRESETS, init_project
 from sdd_pilot.remote import telegram_status
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = PLUGIN_ROOT / "bin" / "sdd"
-HOOKS = ("hook-stop", "hook-format", "hook-session-start")
+HOOKS = ("hook-stop", "hook-format", "hook-guard", "hook-session-start")
 
 
 def _start_dir() -> Path:
@@ -83,6 +90,10 @@ def _hook(command: str) -> int:
             print(json.dumps(decision))
     elif command == "hook-format":
         format_file(cfg, json.load(sys.stdin))
+    elif command == "hook-guard":
+        guard = guard_decision(cfg, json.load(sys.stdin))
+        if guard:
+            print(json.dumps(guard))
     else:
         write_shim(cfg.root, LAUNCHER)
         context = {"hookEventName": "SessionStart", "additionalContext": session_context()}

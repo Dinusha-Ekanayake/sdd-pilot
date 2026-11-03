@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import shutil
@@ -10,8 +11,8 @@ import pytest
 from sdd_pilot import config, trust
 from sdd_pilot import state as run_state
 from sdd_pilot.__main__ import main
-from sdd_pilot.hooks import format_file, stop_decision, write_shim
-from sdd_pilot.init import ASK, init_project, render_config
+from sdd_pilot.hooks import format_file, guard_decision, stop_decision, write_shim
+from sdd_pilot.init import ASK, DENY, init_project, render_config
 from sdd_pilot.remote import telegram_status
 from sdd_pilot.tasks import parse_tasks
 
@@ -65,6 +66,40 @@ def test_format_hook_runs_configured_formatter(repo: Path) -> None:
     assert target.read_text() == "X = 1\n"
 
 
+@pytest.mark.parametrize(
+    "target", [".sdd/state.json", ".sdd/bin/sdd", ".sdd/../.sdd/approvals.log"]
+)
+def test_guard_denies_edits_to_run_state(repo: Path, cfg: config.Config, target: str) -> None:
+    for payload in (
+        {"tool_input": {"file_path": target}, "cwd": str(repo)},
+        {"tool_input": {"file_path": str(repo / target)}},
+    ):
+        decision = guard_decision(cfg, payload)
+        assert decision is not None
+        assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_guard_denies_edits_to_the_trust_store(cfg: config.Config) -> None:
+    payload = {"tool_input": {"file_path": str(trust.store_path())}}
+    assert guard_decision(cfg, payload) is not None
+
+
+@pytest.mark.parametrize("target", ["src/app.py", "sdd.toml", ".sddx/notes.md", ""])
+def test_guard_allows_other_files(repo: Path, cfg: config.Config, target: str) -> None:
+    assert guard_decision(cfg, {"tool_input": {"file_path": target}, "cwd": str(repo)}) is None
+    assert guard_decision(cfg, {}) is None
+
+
+def test_cli_guard_hook_prints_the_decision(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    payload = json.dumps({"tool_input": {"file_path": str(repo / ".sdd" / "state.json")}})
+    monkeypatch.setattr("sys.stdin", io.StringIO(payload))
+    assert main(["hook-guard"]) == 0
+    assert '"deny"' in capsys.readouterr().out
+
+
 def test_format_hook_does_nothing_for_an_untrusted_config(repo: Path) -> None:
     target = repo / "mod.py"
     target.write_text("x = 1\n")
@@ -94,6 +129,7 @@ def test_init_creates_everything_once(tmp_path: Path) -> None:
     assert ".sdd/" in (tmp_path / ".gitignore").read_text()
     settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
     assert set(ASK) <= set(settings["permissions"]["ask"])
+    assert set(DENY) <= set(settings["permissions"]["deny"])
     second = init_project(tmp_path, "python")
     assert second == ["kept existing sdd.toml"]  # still trusted, so no hint
     config.load(tmp_path)  # the written preset is valid

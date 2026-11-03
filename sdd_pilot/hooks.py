@@ -46,6 +46,45 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
     return {"decision": "block", "reason": reason}
 
 
+GUARD_REASON = (
+    "sdd-pilot: {path} is run state or the trust store. It is written only by the sdd CLI, "
+    "so gates and caps cannot be edited around. Use `{sdd} <command>` instead."
+)
+
+
+def _edited_path(payload: dict[str, Any]) -> str:
+    tool_input = payload.get("tool_input") or {}
+    return str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+
+
+def _inside(path: Path, directory: Path) -> bool:
+    try:
+        return path.is_relative_to(directory.resolve())
+    except (OSError, ValueError):
+        return False
+
+
+def guard_decision(cfg: Config, payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Deny file-tool edits to ``.sdd/`` and to the trust store (PreToolUse)."""
+    raw = _edited_path(payload)
+    if not raw:
+        return None
+    path = Path(raw)
+    if not path.is_absolute():
+        path = Path(str(payload.get("cwd") or cfg.root)) / path
+    path = path.resolve()
+    protected = (cfg.root / SHIM.parent.parent, trust.store_path().parent)
+    if not any(_inside(path, directory) for directory in protected):
+        return None
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": GUARD_REASON.format(path=raw, sdd=SDD),
+        }
+    }
+
+
 def format_file(cfg: Config, payload: dict[str, Any]) -> None:
     """Run the configured formatters on an edited file. Never fails the edit.
 
