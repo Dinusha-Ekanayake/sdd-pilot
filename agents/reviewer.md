@@ -20,6 +20,9 @@ Check, in this order:
 3. **Project invariants** named in the spec or brief (for example data leakage, security,
    money handling, backwards compatibility, safety wording).
 4. **Silent decisions** the implementer made that the spec does not cover.
+5. **Gate weakening.** New `skip`, `xfail`, `only`, `# noqa`, `# type: ignore`,
+   `eslint-disable`, `@ts-ignore`, `#[allow(...)]`, lowered coverage thresholds, or
+   removed or loosened assertions are HIGH unless the brief asks for them.
 
 If the brief says `Risk: high`, also write ONE extra adversarial test of your own in the
 relevant test file (the input most likely to break the code) and run only that file. Keep

@@ -4,11 +4,13 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
+from sdd_pilot import config, trust
+from sdd_pilot import state as run_state
 from sdd_pilot.brief import build_brief, signatures
 from sdd_pilot.check import (
     StepResult,
     format_report,
+    guard_step,
     resolve_cmd,
     run_all,
     run_step,
@@ -16,6 +18,8 @@ from sdd_pilot.check import (
     signature,
 )
 from sdd_pilot.config import CheckStep, Wording
+
+from .conftest import write_config
 
 PY = sys.executable
 
@@ -69,7 +73,7 @@ def test_untrusted_config_runs_no_commands(repo: Path) -> None:
 def test_run_all_uses_config(repo: Path) -> None:
     raw = {"check": [{"name": "t", "cmd": [PY, "-c", "pass"]}], "wording": {"banned": []}}
     results = run_all(config.from_dict(repo, raw))
-    assert [r.name for r in results] == ["t", "wording"] and all(r.ok for r in results)
+    assert [r.name for r in results] == ["t", "wording", "guard"] and all(r.ok for r in results)
 
 
 # --- wording ------------------------------------------------------------------
@@ -192,3 +196,40 @@ def test_brief_matches_dotted_name_to_file_in_plan(repo: Path, cfg: config.Confi
     )
     brief = build_brief(cfg, repo / "specs" / "009-demo", ["T-009-01"])
     assert "builds the greeting" in brief and "unrelated" not in brief
+
+
+# --- gate config guard ------------------------------------------------------------
+
+
+def test_gate_config_change_during_a_run_fails_the_check(repo: Path) -> None:
+    (repo / "pyproject.toml").write_text("[tool.coverage.report]\nfail_under = 85\n")
+    cfg = config.load(repo)
+    assert guard_step(cfg).ok  # no run yet
+    run_state.start(cfg, "009", check_branch=False)
+    assert guard_step(cfg).ok
+    (repo / "pyproject.toml").write_text("[tool.coverage.report]\nfail_under = 0\n")
+    result = guard_step(cfg)
+    assert not result.ok and "pyproject.toml" in result.detail[0]
+    assert "guard" in [r.name for r in run_all(cfg)]
+    trust.record_guard(repo, cfg.guard)  # what `sdd trust` does after the user reviews it
+    assert guard_step(cfg).ok
+
+
+def test_new_conftest_counts_as_a_gate_change(repo: Path) -> None:
+    cfg = config.load(repo)
+    run_state.start(cfg, "009", check_branch=False)
+    (repo / "conftest.py").write_text("collect_ignore_glob = ['*']\n")
+    assert not guard_step(cfg).ok
+
+
+def test_guard_is_off_outside_a_run(repo: Path) -> None:
+    cfg = config.load(repo)
+    run_state.start(cfg, "009", check_branch=False)
+    run_state.stop(repo)
+    (repo / "pyproject.toml").write_text("changed")
+    assert guard_step(cfg).ok
+
+
+def test_guard_files_are_configurable(repo: Path) -> None:
+    cfg = write_config(repo, '[project]\nguard = ["gate.cfg"]\n')
+    assert cfg.guard == ("gate.cfg",)

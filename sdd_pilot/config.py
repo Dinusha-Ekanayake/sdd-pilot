@@ -14,6 +14,37 @@ from typing import Any
 CONFIG_FILE = "sdd.toml"
 RISKS = ("low", "high", "human")
 SPEC_NUMBER = re.compile(r"\d{3}")
+# Files that configure the gate itself. Changing one during a run fails `sdd check` until
+# the user looks at it and runs `sdd trust`, so an agent cannot quietly weaken the gate.
+GUARD_FILES = (
+    "pyproject.toml",
+    "setup.cfg",
+    "tox.ini",
+    "pytest.ini",
+    ".coveragerc",
+    "mypy.ini",
+    "ruff.toml",
+    ".ruff.toml",
+    "conftest.py",
+    "tests/conftest.py",
+    "package.json",
+    "tsconfig.json",
+    ".eslintrc",
+    ".eslintrc.json",
+    ".eslintrc.js",
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "jest.config.js",
+    "jest.config.ts",
+    "vitest.config.ts",
+    "vitest.config.js",
+    ".prettierrc",
+    "go.mod",
+    "Cargo.toml",
+    "clippy.toml",
+    "rustfmt.toml",
+    "Makefile",
+)
 
 
 @dataclass(frozen=True)
@@ -59,6 +90,7 @@ class Config:
     helper_files: tuple[str, ...] = ()
     path_roots: tuple[str, ...] = ("src", "lib", "app", "tests", "scripts", "configs", "docs")
     graphify: bool = True
+    guard: tuple[str, ...] = GUARD_FILES
 
     def spec_dir(self, spec: str) -> Path:
         if not SPEC_NUMBER.fullmatch(spec):
@@ -140,6 +172,7 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         helper_files=_tuple(brief.get("helper_files")),
         path_roots=_tuple(brief.get("path_roots", Config.path_roots)),
         graphify=bool(brief.get("graphify", True)),
+        guard=_tuple(project.get("guard", GUARD_FILES)),
     )
 
 

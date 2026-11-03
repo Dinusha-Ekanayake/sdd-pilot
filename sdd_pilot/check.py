@@ -11,6 +11,7 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
+from sdd_pilot import state as run_state
 from sdd_pilot import trust
 from sdd_pilot.config import CONFIG_FILE, CheckStep, Config, Wording
 
@@ -129,8 +130,24 @@ UNTRUSTED = (
 )
 
 
+def guard_step(cfg: Config) -> StepResult:
+    """Fail when a gate config file changed since the run started (or since ``sdd trust``).
+
+    Only during an active run: outside one, editing the project's config is ordinary work.
+    """
+    current = run_state.load(cfg.root)
+    if current is None or not current["active"]:
+        return StepResult("guard", True, ())
+    changed = trust.changed_guard(cfg.root, cfg.guard)
+    if not changed:
+        return StepResult("guard", True, ())
+    detail = [f"gate config changed during the run: {rel}" for rel in changed]
+    detail.append("revert it, or ask the user to review the change and run `sdd trust`")
+    return StepResult("guard", False, tuple(detail))
+
+
 def run_all(cfg: Config) -> list[StepResult]:
     if not trust.config_trusted(cfg.root):
         return [StepResult("trust", False, (UNTRUSTED,))]
     results = [run_step(cfg.root, step) for step in cfg.check]
-    return [*results, scan_wording(cfg.root, cfg.wording)]
+    return [*results, scan_wording(cfg.root, cfg.wording), guard_step(cfg)]

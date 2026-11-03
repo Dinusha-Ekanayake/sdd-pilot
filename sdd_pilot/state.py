@@ -115,6 +115,7 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
     if check_branch and prefix and not current_branch(cfg.root).startswith(prefix):
         raise ValueError(f"switch to a {prefix}* branch before starting the run")
     parse_tasks(directory / "tasks.md")  # fail early on a malformed table
+    trust.record_guard(cfg.root, cfg.guard)  # baseline for the gate config check
     state: State = {
         "spec": spec,
         "spec_dir": directory.relative_to(cfg.root).as_posix(),

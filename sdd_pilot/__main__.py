@@ -138,6 +138,8 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         return 0
     if command == "trust":
         print(f"trusted {cfg_mod.CONFIG_FILE} ({trust.trust_config(root)[:12]})")
+        trust.record_guard(root, cfg.guard)
+        print("gate config files re-baselined")
         return 0
     if command == "remote":
         print(json.dumps(telegram_status(), indent=2))
