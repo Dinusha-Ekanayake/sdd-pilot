@@ -327,7 +327,11 @@ def test_hook_errors_never_break_the_session(
 ) -> None:
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["start", "009", "--no-branch-check"]) == 0
-    (repo / ".sdd" / "state.json").write_text("{}")  # corrupt state makes the hook raise inside
+
+    def broken(cfg: config.Config) -> None:
+        raise KeyError("boom")
+
+    monkeypatch.setattr("sdd_pilot.__main__.stop_decision", broken)
     assert main(["hook-stop"]) == 0
     assert "sdd-pilot hook-stop: KeyError" in capsys.readouterr().err
 

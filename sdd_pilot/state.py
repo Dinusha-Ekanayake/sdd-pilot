@@ -4,13 +4,14 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import subprocess
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 from sdd_pilot import trust
-from sdd_pilot.config import Config
+from sdd_pilot.config import SPEC_NUMBER, Config
 from sdd_pilot.dashboard import write_dashboard
 from sdd_pilot.graph import ensure_ignores
 from sdd_pilot.safefs import ensure_safe
@@ -25,10 +26,22 @@ State = dict[str, Any]
 
 
 def load(root: Path) -> State | None:
+    """The run started by ``sdd start`` here, or None.
+
+    State a repository ships (a committed ``.sdd/state.json``) does not count: its run id
+    must match the one ``start`` recorded in the trust store, and its fields must be sane,
+    because they end up in prompts (the Stop hook's continue reason).
+    """
     path = root / STATE_FILE
     if not path.exists():
         return None
     state: State = json.loads(path.read_text(encoding="utf-8"))
+    run_id = state.get("run_id")
+    if not run_id or run_id != trust.current_run(root):
+        return None
+    spec_dir = str(state.get("spec_dir", ""))
+    if not SPEC_NUMBER.fullmatch(str(state.get("spec", ""))) or ".." in Path(spec_dir).parts:
+        return None
     return state
 
 
@@ -171,7 +184,10 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
     trust.record_guard(cfg.root, cfg.guard)  # baseline for the gate config check
     if cfg.graphify_auto:
         ensure_ignores(cfg.root)  # so a background graph sync cannot change the tree mid-run
+    run_id = secrets.token_hex(8)
+    trust.record_run(cfg.root, run_id)
     state: State = {
+        "run_id": run_id,
         "spec": spec,
         "spec_dir": directory.relative_to(cfg.root).as_posix(),
         "active": True,

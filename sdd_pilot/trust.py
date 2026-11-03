@@ -101,6 +101,18 @@ def approved_hash(root: Path, spec: str) -> str | None:
     return str(value) if value else None
 
 
+def record_run(root: Path, run_id: str) -> None:
+    """The run ``sdd start`` began; state.json without this id is not a run."""
+    data = _load()
+    _project(data, root)["run"] = run_id
+    _save(data)
+
+
+def current_run(root: Path) -> str | None:
+    value = _read(root).get("run")
+    return str(value) if value else None
+
+
 def record_ticks(root: Path, spec: str, statuses: dict[str, str]) -> None:
     """The task statuses only ``sdd start`` and ``sdd done`` may set."""
     data = _load()
