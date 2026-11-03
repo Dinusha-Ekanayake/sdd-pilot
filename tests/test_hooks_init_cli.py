@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
+from sdd_pilot import config, trust
 from sdd_pilot import state as run_state
 from sdd_pilot.__main__ import main
 from sdd_pilot.hooks import format_file, stop_decision, write_shim
@@ -15,7 +15,7 @@ from sdd_pilot.init import ASK, init_project, render_config
 from sdd_pilot.remote import telegram_status
 from sdd_pilot.tasks import parse_tasks
 
-from .conftest import tasks_file
+from .conftest import tasks_file, write_config
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -65,6 +65,14 @@ def test_format_hook_runs_configured_formatter(repo: Path) -> None:
     assert target.read_text() == "X = 1\n"
 
 
+def test_format_hook_does_nothing_for_an_untrusted_config(repo: Path) -> None:
+    target = repo / "mod.py"
+    target.write_text("x = 1\n")
+    (repo / "sdd.toml").write_text("# changed by a clone or an agent\n")
+    format_file(_formatter_cfg(repo), {"tool_input": {"file_path": str(target)}})
+    assert target.read_text() == "x = 1\n"
+
+
 def test_format_hook_ignores_other_suffixes_and_missing_files(repo: Path) -> None:
     notes = repo / "notes.md"
     notes.write_text("x = 1\n")
@@ -80,14 +88,33 @@ def test_format_hook_ignores_other_suffixes_and_missing_files(repo: Path) -> Non
 
 def test_init_creates_everything_once(tmp_path: Path) -> None:
     first = init_project(tmp_path, "python")
-    assert "wrote sdd.toml (python preset)" in first
+    assert "wrote sdd.toml (python preset, trusted)" in first
+    assert trust.config_trusted(tmp_path)
     assert (tmp_path / "specs" / "_template" / "tasks.md").exists()
     assert ".sdd/" in (tmp_path / ".gitignore").read_text()
     settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
     assert set(ASK) <= set(settings["permissions"]["ask"])
     second = init_project(tmp_path, "python")
-    assert second == ["kept existing sdd.toml"]
+    assert second == ["kept existing sdd.toml"]  # still trusted, so no hint
     config.load(tmp_path)  # the written preset is valid
+
+
+def test_init_does_not_trust_an_existing_config(tmp_path: Path) -> None:
+    (tmp_path / "sdd.toml").write_text("[project]\n")
+    lines = init_project(tmp_path, "python")
+    assert "kept existing sdd.toml" in lines and not trust.config_trusted(tmp_path)
+    assert any("sdd trust" in line for line in lines)
+
+
+def test_cli_trust_records_the_config(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    (repo / "sdd.toml").write_text("[brief]\ngraphify = false\n# edited\n")
+    assert not trust.config_trusted(repo)
+    assert main(["trust"]) == 0
+    assert "trusted sdd.toml" in capsys.readouterr().out
+    assert trust.config_trusted(repo)
 
 
 def test_init_keeps_existing_settings(tmp_path: Path) -> None:
@@ -179,8 +206,8 @@ def test_cli_round_trip(
 
 
 def test_cli_check_records_failures(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    (repo / "sdd.toml").write_text(
-        f'[[check]]\nname = "t"\ncmd = [{json.dumps(sys.executable)}, "-c", "exit(1)"]\n'
+    write_config(
+        repo, f'[[check]]\nname = "t"\ncmd = [{json.dumps(sys.executable)}, "-c", "exit(1)"]\n'
     )
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["start", "009", "--no-branch-check"]) == 0

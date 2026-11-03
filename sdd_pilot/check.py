@@ -11,7 +11,8 @@ import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
-from sdd_pilot.config import CheckStep, Config, Wording
+from sdd_pilot import trust
+from sdd_pilot.config import CONFIG_FILE, CheckStep, Config, Wording
 
 MAX_DETAIL_LINES = 25
 COVERAGE_LINE = re.compile(r"^(TOTAL\b|All files\b|Statements\s*:)")
@@ -26,10 +27,16 @@ class StepResult:
 
 
 def resolve_cmd(cmd: tuple[str, ...], root: Path) -> list[str]:
-    """Find the executable the way a shell would (``npm`` is ``npm.cmd`` on Windows)."""
+    """Find the executable the way a shell would (``npm`` is ``npm.cmd`` on Windows).
+
+    Only a name with a path separator (``./run.sh``, ``.venv/bin/python``) is looked up in
+    the repository. A bare name such as ``python`` always comes from ``PATH``, so a file
+    committed as ``python`` at the repository root cannot stand in for it.
+    """
     exe = cmd[0]
+    has_sep = "/" in exe or "\\" in exe
     local = root / exe
-    found = str(local) if local.exists() else shutil.which(exe)
+    found = str(local) if has_sep and local.is_file() else shutil.which(exe)
     if found is None:
         raise FileNotFoundError(exe)
     return [found, *cmd[1:]]
@@ -116,6 +123,14 @@ def format_report(results: list[StepResult]) -> str:
     return "\n".join(out)
 
 
+UNTRUSTED = (
+    f"{CONFIG_FILE} is not trusted (new, or changed since `sdd trust`). Its commands were "
+    f"not run. Review {CONFIG_FILE}, then run `sdd trust` (it asks for permission)."
+)
+
+
 def run_all(cfg: Config) -> list[StepResult]:
+    if not trust.config_trusted(cfg.root):
+        return [StepResult("trust", False, (UNTRUSTED,))]
     results = [run_step(cfg.root, step) for step in cfg.check]
     return [*results, scan_wording(cfg.root, cfg.wording)]

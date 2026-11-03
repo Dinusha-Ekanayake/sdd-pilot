@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
+from sdd_pilot import config, trust
 
 TASKS = """\
 # Tasks 009: demo
@@ -25,6 +25,14 @@ SPEC = """\
 PLAN = "| `src/demo/demo.py` | `make_demo(df)` builds features |\nunrelated line\n"
 
 
+@pytest.fixture(autouse=True)
+def trust_home(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Keep the trust store out of the real home directory."""
+    home = tmp_path_factory.mktemp("sdd-home")
+    monkeypatch.setenv("SDD_HOME", str(home))
+    return home
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     spec = tmp_path / "specs" / "009-demo"
@@ -33,7 +41,15 @@ def repo(tmp_path: Path) -> Path:
     (spec / "spec.md").write_text(SPEC, encoding="utf-8")
     (spec / "plan.md").write_text(PLAN, encoding="utf-8")
     (tmp_path / "sdd.toml").write_text("[brief]\ngraphify = false\n", encoding="utf-8")
+    trust.trust_config(tmp_path)
     return tmp_path
+
+
+def write_config(repo: Path, text: str) -> config.Config:
+    """Replace sdd.toml, trust it (as the user would) and load it."""
+    (repo / "sdd.toml").write_text(text, encoding="utf-8")
+    trust.trust_config(repo)
+    return config.load(repo)
 
 
 @pytest.fixture

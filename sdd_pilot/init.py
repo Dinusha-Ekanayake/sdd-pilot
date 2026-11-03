@@ -5,6 +5,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from sdd_pilot import trust
 from sdd_pilot.config import CONFIG_FILE
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
@@ -22,6 +23,7 @@ ALLOW = [
 # with permission relay (for example Telegram) can show the prompt on a phone.
 ASK = [
     f"Bash({SDD} approve:*)",
+    f"Bash({SDD} trust:*)",
     "Bash(git commit:*)",
     "Bash(git push:*)",
     "Bash(gh pr create:*)",
@@ -76,9 +78,12 @@ def init_project(
     config = root / CONFIG_FILE
     if config.exists() and not force:
         done.append(f"kept existing {CONFIG_FILE}")
+        if not trust.config_trusted(root):
+            done.append(f"review {CONFIG_FILE}, then run `{SDD} trust` before the first check")
     else:
         config.write_text(render_config(root, preset), encoding="utf-8")
-        done.append(f"wrote {CONFIG_FILE} ({preset} preset)")
+        trust.trust_config(root)  # the user asked for this file, so it starts trusted
+        done.append(f"wrote {CONFIG_FILE} ({preset} preset, trusted)")
     template_dir = root / specs_dir / "_template"
     template_dir.mkdir(parents=True, exist_ok=True)
     for name in ("spec.md", "plan.md", "tasks.md"):

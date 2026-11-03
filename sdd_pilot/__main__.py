@@ -9,6 +9,7 @@ from pathlib import Path
 
 from sdd_pilot import config as cfg_mod
 from sdd_pilot import state as run_state
+from sdd_pilot import trust
 from sdd_pilot.brief import write_brief
 from sdd_pilot.check import format_report, run_all, signature
 from sdd_pilot.hooks import SDD, format_file, session_context, stop_decision, write_shim
@@ -56,6 +57,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("halt").add_argument("reason")
     status = sub.add_parser("status")
     status.add_argument("--json", action="store_true")
+    sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
     for name in ("next", "resume", "stop", "remote", *HOOKS):
         sub.add_parser(name)
     return parser
@@ -117,6 +119,9 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
             print(json.dumps(run_state.load(root)))
         else:
             print(run_state.summary(root))
+        return 0
+    if command == "trust":
+        print(f"trusted {cfg_mod.CONFIG_FILE} ({trust.trust_config(root)[:12]})")
         return 0
     if command == "remote":
         print(json.dumps(telegram_status(), indent=2))

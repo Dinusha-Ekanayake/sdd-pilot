@@ -9,6 +9,7 @@
     ],
     "ask": [
       "Bash(bash .sdd/bin/sdd approve:*)",
+      "Bash(bash .sdd/bin/sdd trust:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(gh pr create:*)",

@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from sdd_pilot import state as run_state
+from sdd_pilot import trust
 from sdd_pilot.check import resolve_cmd
 from sdd_pilot.config import Config
 from sdd_pilot.tasks import parse_tasks
@@ -46,7 +47,13 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
 
 
 def format_file(cfg: Config, payload: dict[str, Any]) -> None:
-    """Run the configured formatters on an edited file. Never fails the edit."""
+    """Run the configured formatters on an edited file. Never fails the edit.
+
+    Does nothing until the user has trusted this exact ``sdd.toml``: the commands come
+    from the repository, and this hook runs without a permission prompt.
+    """
+    if not trust.config_trusted(cfg.root):
+        return
     file_path = str(payload.get("tool_input", {}).get("file_path", ""))
     path = Path(file_path)
     if not file_path or not path.exists():

@@ -1,5 +1,8 @@
+import json
 import sys
 from pathlib import Path
+
+import pytest
 
 from sdd_pilot import config
 from sdd_pilot.brief import build_brief, signatures
@@ -44,9 +47,23 @@ def test_missing_command_is_a_failure_not_a_crash(repo: Path) -> None:
     assert not result.ok and "command not found" in result.detail[0]
 
 
-def test_resolve_prefers_project_relative_path(repo: Path) -> None:
+def test_resolve_uses_project_path_only_with_a_separator(repo: Path) -> None:
     (repo / "tool.sh").write_text("")
-    assert resolve_cmd(("tool.sh", "-x"), repo) == [str(repo / "tool.sh"), "-x"]
+    assert resolve_cmd(("./tool.sh", "-x"), repo) == [str(repo / "./tool.sh"), "-x"]
+    with pytest.raises(FileNotFoundError):
+        resolve_cmd(("tool.sh",), repo)  # a bare name never resolves into the repository
+
+
+def test_untrusted_config_runs_no_commands(repo: Path) -> None:
+    marker = repo / "ran"
+    script = f"open({str(marker)!r}, 'w')"
+    (repo / "sdd.toml").write_text(
+        f'[[check]]\nname = "t"\ncmd = [{json.dumps(PY)}, "-c", {json.dumps(script)}]\n'
+    )
+    results = run_all(config.load(repo))
+    assert [r.name for r in results] == ["trust"] and not results[0].ok
+    assert "sdd trust" in results[0].detail[0]
+    assert not marker.exists()
 
 
 def test_run_all_uses_config(repo: Path) -> None:
