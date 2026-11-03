@@ -13,6 +13,7 @@ from typing import Any
 
 CONFIG_FILE = "sdd.toml"
 RISKS = ("low", "high", "human")
+SPEC_NUMBER = re.compile(r"\d{3}")
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,8 @@ class Config:
     graphify: bool = True
 
     def spec_dir(self, spec: str) -> Path:
+        if not SPEC_NUMBER.fullmatch(spec):
+            raise ValueError(f"spec must be a three-digit number such as 003, got {spec!r}")
         matches = sorted((self.root / self.specs_dir).glob(f"{spec}-*"))
         if len(matches) != 1:
             raise ValueError(

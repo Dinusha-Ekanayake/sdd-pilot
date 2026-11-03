@@ -42,6 +42,7 @@ def repo(tmp_path: Path) -> Path:
     (spec / "plan.md").write_text(PLAN, encoding="utf-8")
     (tmp_path / "sdd.toml").write_text("[brief]\ngraphify = false\n", encoding="utf-8")
     trust.trust_config(tmp_path)
+    trust.record_approval(tmp_path, "009", trust.file_hash(spec / "spec.md") or "")
     return tmp_path
 
 

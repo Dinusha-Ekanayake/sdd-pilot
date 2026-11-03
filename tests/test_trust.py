@@ -31,9 +31,9 @@ def test_trust_is_per_project(repo: Path, tmp_path_factory: pytest.TempPathFacto
 
 
 def test_approvals_round_trip(repo: Path) -> None:
-    assert trust.approved_hash(repo, "009") is None
-    trust.record_approval(repo, "009", "abc")
-    assert trust.approved_hash(repo, "009") == "abc"
+    assert trust.approved_hash(repo, "010") is None
+    trust.record_approval(repo, "010", "abc")
+    assert trust.approved_hash(repo, "010") == "abc"
 
 
 def test_guard_reports_changed_created_and_deleted_files(repo: Path) -> None:

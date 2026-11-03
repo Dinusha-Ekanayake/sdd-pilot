@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
+from sdd_pilot import config, trust
 from sdd_pilot import state as run_state
 from sdd_pilot.tasks import HUMAN, parse_tasks
 
@@ -107,6 +107,43 @@ def test_approve_updates_status_and_logs(repo: Path, cfg: config.Config) -> None
     assert "REQ-009-01" in spec.read_text()  # nothing else touched
     entry = json.loads((repo / ".sdd" / "approvals.log").read_text().splitlines()[-1])
     assert entry["spec"] == "009" and entry["via"] == "telegram"
+
+
+def test_hand_edited_status_line_is_not_an_approval(repo: Path, cfg: config.Config) -> None:
+    spec = repo / "specs" / "009-demo" / "spec.md"
+    spec.write_text(SPEC.replace("Approved (2026-11-02)", "Draft"))
+    run_state.approve(cfg, "009", via="terminal")
+    trust.record_approval(repo, "009", "forged-or-stale")  # e.g. a different spec version
+    spec.write_text(SPEC)  # an agent writes "Approved" itself
+    with pytest.raises(ValueError, match="changed after it was approved"):
+        _start(cfg)
+
+
+def test_status_line_without_any_recorded_approval(repo: Path, cfg: config.Config) -> None:
+    store = trust.store_path()
+    store.write_text(store.read_text().replace('"009"', '"008"'))
+    with pytest.raises(ValueError, match="no recorded approval"):
+        _start(cfg)
+
+
+def test_approval_follows_spec_edits(repo: Path, cfg: config.Config) -> None:
+    spec = repo / "specs" / "009-demo" / "spec.md"
+    run_state.approve(cfg, "009", via="terminal")
+    entry = json.loads((repo / ".sdd" / "approvals.log").read_text().splitlines()[-1])
+    assert entry["sha256"] == trust.file_hash(spec)
+    _start(cfg)
+    spec.write_text(spec.read_text() + "- REQ-009-02: slipped in after approval.\n")
+    step = run_state.next_step(cfg)
+    assert step["status"] == "halted" and "changed after it was approved" in step["reason"]
+    run_state.approve(cfg, "009", via="terminal")  # the user re-approves
+    run_state.resume(repo)
+    assert run_state.next_step(cfg)["status"] == "run"
+
+
+@pytest.mark.parametrize("spec", ["*", "../009", "9", "0091"])
+def test_spec_number_is_validated(cfg: config.Config, spec: str) -> None:
+    with pytest.raises(ValueError, match="three-digit"):
+        cfg.spec_dir(spec)
 
 
 def test_approve_requires_status_line(repo: Path, cfg: config.Config) -> None:

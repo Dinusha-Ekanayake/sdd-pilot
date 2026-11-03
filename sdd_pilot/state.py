@@ -7,6 +7,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
+from sdd_pilot import trust
 from sdd_pilot.config import Config
 from sdd_pilot.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
 
@@ -56,11 +57,13 @@ def current_branch(root: Path) -> str:
 
 
 def approve(cfg: Config, spec: str, via: str) -> str:
-    """Mark a spec approved and log who approved it from where.
+    """Mark a spec approved, bind the approval to its content, and log it.
 
     Projects should put ``sdd approve`` behind an ``ask`` permission rule, so the
     approval is a permission prompt only the human can answer (in the terminal, or
-    relayed to their phone by a channel plugin).
+    relayed to their phone by a channel plugin). The sha256 of the approved ``spec.md``
+    goes to the trust store outside the repository, so editing the status line by hand,
+    or changing the spec after approval, does not count as approval.
     """
     path = cfg.spec_dir(spec) / "spec.md"
     text = path.read_text(encoding="utf-8")
@@ -69,7 +72,14 @@ def approve(cfg: Config, spec: str, via: str) -> str:
     stamp = f"{cfg.approved_word} ({date.today().isoformat()})"
     new_text = re.sub(cfg.status_regex, lambda m: f"{m.group(1)}{stamp}", text, count=1)
     path.write_text(new_text, encoding="utf-8")
-    entry = {"time": datetime.now(UTC).isoformat(timespec="seconds"), "spec": spec, "via": via}
+    digest = trust.file_hash(path) or ""
+    trust.record_approval(cfg.root, spec, digest)
+    entry = {
+        "time": datetime.now(UTC).isoformat(timespec="seconds"),
+        "spec": spec,
+        "sha256": digest,
+        "via": via,  # reported by the caller; the permission prompt is the real gate
+    }
     log = cfg.root / APPROVALS_FILE
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as handle:
@@ -77,10 +87,25 @@ def approve(cfg: Config, spec: str, via: str) -> str:
     return stamp
 
 
+def approval_problem(cfg: Config, spec: str, directory: Path) -> str | None:
+    """Why the spec does not count as approved right now, or None when it does."""
+    spec_file = directory / "spec.md"
+    name = f"{directory.name}/spec.md"
+    if not cfg.is_approved(spec_file.read_text(encoding="utf-8")):
+        return f"{name} is not approved; get user approval first"
+    recorded = trust.approved_hash(cfg.root, spec)
+    if recorded is None:
+        return f"{name} says approved but has no recorded approval; run `sdd approve {spec}`"
+    if recorded != trust.file_hash(spec_file):
+        return f"{name} changed after it was approved; the user must approve it again"
+    return None
+
+
 def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
     directory = cfg.spec_dir(spec)
-    if not cfg.is_approved((directory / "spec.md").read_text(encoding="utf-8")):
-        raise ValueError(f"{directory.name}/spec.md is not approved; get user approval first")
+    problem = approval_problem(cfg, spec, directory)
+    if problem:
+        raise ValueError(problem)
     prefix = cfg.branch_prefix.format(spec=spec)
     if check_branch and prefix and not current_branch(cfg.root).startswith(prefix):
         raise ValueError(f"switch to a {prefix}* branch before starting the run")
@@ -116,6 +141,10 @@ def next_step(cfg: Config) -> dict[str, Any]:
     state = require(cfg.root)
     if state["halted"]:
         return {"status": "halted", "reason": state["halted"]}
+    problem = approval_problem(cfg, state["spec"], cfg.root / state["spec_dir"])
+    if problem:
+        halt(cfg.root, state, problem)
+        return {"status": "halted", "reason": problem}
     tasks = parse_tasks(tasks_path(cfg.root, state))
     group = next_group(tasks, cfg.max_group, cfg.max_group_high)
     if not group:
