@@ -23,26 +23,9 @@ _JS_EXPORT = re.compile(
     r"^export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|interface|type)\s+\w+[^{=]*"
 )
 
-RULES = """\
-## Rules
-- TDD: write the failing test, run it (RED), implement (GREEN), refactor.
-- Open only the files named here. If you must look further, use `graphify query "..."`
-  when the project has a graph, and say so under BRIEF GAPS in your report.
-- Gate: `{sdd} check` must print `SDD CHECK: PASS`.
-- Never commit, push, delete data or install packages.
-- If the spec is ambiguous and the choice changes behaviour, stop and report it under
-  QUESTIONS instead of guessing. Record smaller choices under ASSUMPTIONS.
-
-## Report (return exactly this, nothing else)
-STATUS: done | blocked
-TASKS: <ids>
-FILES: <changed files>
-TESTS: <new test names, one line>
-CHECK: <the SDD CHECK line and coverage line>
-ASSUMPTIONS: <bullets or none>
-QUESTIONS: <bullets or none>
-BRIEF GAPS: <what was missing from this brief, or none>
-"""
+# The rules and the report format live in agents/implementer.md, a system prompt that is
+# cached across a run, so they are not repeated in every brief.
+FOOTER = "## Gate\n`{sdd} check` must print `SDD CHECK: PASS`. Report as your instructions say.\n"
 
 
 def _is_specific(part: str) -> bool:
@@ -192,7 +175,7 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
         nodes = _graphify(cfg.root, query)
         if nodes:
             parts.append("## Related graph nodes\n" + nodes)
-    parts.append(RULES.format(sdd=sdd))
+    parts.append(FOOTER.format(sdd=sdd))
     return "\n\n".join(parts) + "\n"
 
 

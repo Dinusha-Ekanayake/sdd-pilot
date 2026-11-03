@@ -146,7 +146,13 @@ def test_brief_contains_only_relevant_context(repo: Path, cfg: config.Config) ->
     assert "REQ-009-01" in brief and "AC-01" in brief
     assert "### src/demo/demo.py\n(new file)" in brief
     assert "`bash .sdd/bin/sdd check`" in brief
-    assert "STATUS: done | blocked" in brief
+    assert "STATUS:" not in brief  # the report format lives in the cached agent prompt
+
+
+def test_report_format_lives_in_the_implementer_prompt() -> None:
+    prompt = (Path(__file__).parent.parent / "agents" / "implementer.md").read_text("utf-8")
+    for field in ("STATUS:", "TASKS:", "CHECK:", "ASSUMPTIONS:", "QUESTIONS:", "BRIEF GAPS:"):
+        assert field in prompt
 
 
 def test_brief_shows_sibling_modules_for_new_files(repo: Path, cfg: config.Config) -> None:
