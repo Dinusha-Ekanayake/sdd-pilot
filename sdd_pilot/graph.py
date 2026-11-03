@@ -179,17 +179,21 @@ def start_background_sync(root: Path, entry: Path) -> bool:
     flags = 0
     if os.name == "nt":
         flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-    with (root / LOG_FILE).open("a", encoding="utf-8") as log:
-        subprocess.Popen(  # noqa: S603 - fixed argv: this interpreter and the plugin's entry
-            [sys.executable, str(entry), "graph", "sync"],
-            cwd=root,
-            stdin=subprocess.DEVNULL,
-            stdout=log,
-            stderr=subprocess.STDOUT,
-            creationflags=flags,
-            start_new_session=os.name != "nt",
-            close_fds=True,
-        )
+    try:
+        with (root / LOG_FILE).open("a", encoding="utf-8") as log:
+            subprocess.Popen(  # noqa: S603 - fixed argv: this interpreter and the plugin's entry
+                [sys.executable, str(entry), "graph", "sync"],
+                cwd=root,
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                creationflags=flags,
+                start_new_session=os.name != "nt",
+                close_fds=True,
+            )
+    except OSError:
+        release_lock(root)  # a failed spawn must not block the next session for 30 minutes
+        return False
     return True
 
 

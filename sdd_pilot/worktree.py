@@ -10,8 +10,17 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
+# Never part of the fingerprint, whatever the project's .gitignore says: sdd-pilot's own
+# state, the code graph, environments, and files that tools regenerate when tests run.
 SKIP_DIRS = {".git", ".sdd", ".venv", "venv", "node_modules", "__pycache__", "graphify-out"}
-SKIP_DIRS |= {".mypy_cache", ".pytest_cache", ".ruff_cache", "dist", "build", "target"}
+SKIP_DIRS |= {".mypy_cache", ".pytest_cache", ".ruff_cache", ".hypothesis", ".tox", ".nox"}
+SKIP_DIRS |= {"htmlcov", "coverage", ".nyc_output", "dist", "build", "target", ".next", "out"}
+SKIP_FILES = {".coverage", "coverage.xml", ".graphifyignore", ".DS_Store"}
+
+
+def _skipped(rel: str, excluded: set[str]) -> bool:
+    parts = rel.split("/")
+    return rel in excluded or parts[-1] in SKIP_FILES or bool(SKIP_DIRS & set(parts[:-1]))
 
 
 def _git(root: Path, *args: str) -> bytes | None:
@@ -36,21 +45,25 @@ def fingerprint(root: Path, exclude: tuple[str, ...] = ()) -> str:
     """sha256 of the uncommitted state of ``root``; ``exclude`` lists relative paths."""
     digest = hashlib.sha256()
     excluded = set(exclude)
-    pathspec = [".", *(f":(exclude){rel}" for rel in exclude)]
+    skip = [f":(exclude){name}" for name in sorted(SKIP_DIRS | SKIP_FILES)]
+    pathspec = [".", *(f":(exclude){rel}" for rel in exclude), *skip]
     diff = _git(root, "diff", "HEAD", "--binary", "--", *pathspec)
-    untracked = _git(root, "ls-files", "--others", "--exclude-standard", "-z", "--", *pathspec)
-    if diff is not None and untracked is not None:
-        digest.update(b"git\0" + diff)
-        names = [name for name in untracked.decode("utf-8", "replace").split("\0") if name]
-        _hash_files(root, [root / name for name in names if name not in excluded], digest.update)
+    listing = ["ls-files", "--others", "--exclude-standard", "-z", "--", *pathspec]
+    if diff is None:
+        # No commit yet (or no git): hash the files git would track, else every file.
+        listing.insert(1, "--cached")
+    names = _git(root, *listing)
+    if names is not None:
+        digest.update(b"git\0" + (diff or b""))
+        rels = [name for name in names.decode("utf-8", "replace").split("\0") if name]
+        _hash_files(
+            root, [root / rel for rel in rels if not _skipped(rel, excluded)], digest.update
+        )
         return digest.hexdigest()
-    # Not a git repository, or no commit yet: hash every file outside the skipped folders.
     files = [
         path
         for path in root.rglob("*")
-        if path.is_file()
-        and not SKIP_DIRS & set(path.relative_to(root).parts)
-        and path.relative_to(root).as_posix() not in excluded
+        if path.is_file() and not _skipped(path.relative_to(root).as_posix(), excluded)
     ]
     digest.update(b"files\0")
     _hash_files(root, files, digest.update)

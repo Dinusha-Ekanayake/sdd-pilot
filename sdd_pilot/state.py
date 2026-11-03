@@ -11,6 +11,7 @@ from typing import Any
 from sdd_pilot import trust
 from sdd_pilot.config import Config
 from sdd_pilot.dashboard import write_dashboard
+from sdd_pilot.graph import ensure_ignores
 from sdd_pilot.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
 from sdd_pilot.worktree import fingerprint
 
@@ -122,6 +123,8 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
         raise ValueError(f"switch to a {prefix}* branch before starting the run")
     parse_tasks(directory / "tasks.md")  # fail early on a malformed table
     trust.record_guard(cfg.root, cfg.guard)  # baseline for the gate config check
+    if cfg.graphify_auto:
+        ensure_ignores(cfg.root)  # so a background graph sync cannot change the tree mid-run
     state: State = {
         "spec": spec,
         "spec_dir": directory.relative_to(cfg.root).as_posix(),
@@ -175,12 +178,15 @@ def next_step(cfg: Config) -> dict[str, Any]:
         halt(cfg.root, state, problem)
         return {"status": "halted", "reason": problem}
     tasks = parse_tasks(tasks_path(cfg.root, state))
-    group = next_group(tasks, cfg.max_group, cfg.max_group_high)
+    gate = _gate(state)
+    # A group stays in flight, with its gate and review results, until all of it is ticked.
+    remaining = [t for t in tasks if t.pending and t.id in gate["group"]]
+    group = remaining or next_group(tasks, cfg.max_group, cfg.max_group_high)
     if not group:
         return {"status": "done", "spec": state["spec"]}
     risk = group[0].risk
     ids = [t.id for t in group]
-    if _gate(state)["group"] != ids:
+    if not remaining:
         state["gate"] = _fresh_gate(ids)
         save(cfg.root, state)
     return {
@@ -259,6 +265,9 @@ def record_review(cfg: Config, task_id: str, verdict: str) -> State:
     if verdict not in ("clean", "changes"):
         raise ValueError("verdict must be 'clean' or 'changes'")
     state = require(cfg.root)
+    group = _gate(state)["group"]
+    if group and task_id not in group:
+        raise ValueError(f"{task_id} is not in the group in flight ({group}); review that group")
     entry = _task(state, task_id)
     entry["review_rounds"] += 1
     _gate(state)["reviewed"] = tree(cfg.root, state) if verdict == "clean" else None

@@ -129,6 +129,7 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
         write_shim(cfg.root, LAUNCHER)
         text = session_context()
         if cfg.graphify_auto:
+            graph.ensure_ignores(cfg.root)  # now, not mid-run from the background sync
             graph.start_background_sync(cfg.root, ENTRY)
             text += graph.session_hint(cfg.root)
         context = {"hookEventName": "SessionStart", "additionalContext": text}
