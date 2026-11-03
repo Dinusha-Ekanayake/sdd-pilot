@@ -60,3 +60,14 @@ def cfg(repo: Path) -> config.Config:
 
 def tasks_file(repo: Path) -> Path:
     return repo / "specs" / "009-demo" / "tasks.md"
+
+
+def tick(cfg: config.Config, task_id: str, human: bool = False) -> None:
+    """Tick a task as the loop would: its gate passed and its review was clean for this tree."""
+    from sdd_pilot import state as run_state
+
+    state = run_state.require(cfg.root)
+    now = run_state.tree(cfg.root, state)
+    state["gate"] = {"group": [task_id], "passed": now, "reviewed": now}
+    run_state.save(cfg.root, state)
+    run_state.complete(cfg, task_id, human)

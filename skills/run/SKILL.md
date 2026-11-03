@@ -39,8 +39,8 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
    4. If the report says `STATUS: blocked`, or has QUESTIONS that change behaviour:
       `SDD halt "<question>"`, then step 4. Record each ASSUMPTIONS line with
       `SDD assume <task> "<text>"`.
-   5. **Gate.** `SDD check --task <first id>`. On FAIL, send the failing lines to the
-      implementer and gate again. `HALTED` in the output → step 4.
+   5. **Gate.** `SDD check` (failures are recorded against the group in flight). On FAIL,
+      send the failing lines to the implementer and gate again. `HALTED` → step 4.
    6. **Review.** Start, or reuse via SendMessage, one reviewer per model, with
       `model: <reviewer_model>`. Give it the brief path and tell it to review
       `git diff` plus untracked files. Run `SDD agent reviewer`, then
@@ -48,7 +48,11 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
       - `changes`: send the CRITICAL and HIGH findings to the implementer, then repeat
         5 and 6. `HALTED` → step 4.
       - QUESTIONS FOR USER: `SDD halt "<question>"`, then step 4.
-   7. **Tick.** `SDD done <id>` for each task, with `--human` when `human_signoff` is true.
+   7. **Tick.** `SDD done <id>` for each task. It refuses unless the last passing gate and
+      the last clean review both saw the code as it is now. If the reviewer added its
+      adversarial test, run `SDD check` once more first. `human` tasks are marked `[?]`
+      automatically. Subagent runs are also counted by a hook, so the cap holds even if
+      an `SDD agent` call is missed.
    8. If the project has `graphify-out/`, run `graphify update .` (local, no tokens).
    9. Print one line, for example `T-003-04..05 done (review clean, 1 assumption)`. If the
       phone is ready, send that line too. Loop.

@@ -16,7 +16,7 @@ from sdd_pilot.init import ASK, DENY, init_project, render_config
 from sdd_pilot.remote import telegram_status
 from sdd_pilot.tasks import parse_tasks
 
-from .conftest import tasks_file, write_config
+from .conftest import tasks_file, tick, write_config
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -39,7 +39,7 @@ def test_stop_hook_blocks_then_halts_without_progress(cfg: config.Config) -> Non
 def test_stop_hook_keeps_blocking_while_progress_is_made(cfg: config.Config) -> None:
     run_state.start(cfg, "009", check_branch=False)
     assert stop_decision(cfg) is not None
-    run_state.complete(cfg.root, "T-009-02", human=False)
+    tick(cfg, "T-009-02")
     assert stop_decision(cfg) is not None
 
 
@@ -47,7 +47,7 @@ def test_stop_hook_allows_stop_when_all_done(repo: Path, cfg: config.Config) -> 
     run_state.start(cfg, "009", check_branch=False)
     for task in parse_tasks(tasks_file(repo)):
         if task.pending:
-            run_state.complete(repo, task.id, human=False)
+            tick(cfg, task.id)
     assert stop_decision(cfg) is None
 
 
@@ -226,9 +226,10 @@ def test_cli_round_trip(
     assert (repo / ".sdd" / "briefs" / "T-009-02.md").exists()
     for argv in (["agent", "implementer", "--fresh"], ["assume", "T-009-02", "x"]):
         assert main(argv) == 0
+    assert main(["done", "T-009-02"]) == 2  # no gate or review yet
+    assert main(["check"]) == 0
     assert main(["review", "T-009-02", "clean"]) == 0
     assert main(["done", "T-009-02"]) == 0
-    assert main(["check"]) == 0
     assert main(["status"]) == 0
     assert "1 done" not in capsys.readouterr().out.split("Spec 009:")[0]
     assert main(["halt", "need user"]) == 0

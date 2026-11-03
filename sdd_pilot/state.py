@@ -10,6 +10,7 @@ from typing import Any
 from sdd_pilot import trust
 from sdd_pilot.config import Config
 from sdd_pilot.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
+from sdd_pilot.worktree import fingerprint
 
 STATE_DIR = Path(".sdd")
 STATE_FILE = STATE_DIR / "state.json"
@@ -124,10 +125,27 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
         "agent_runs": 0,
         "implementer_tasks": 0,
         "last_block_done": -1,
+        "observed_agent_runs": 0,
+        "gate": _fresh_gate([]),
         "tasks": {},
     }
     save(cfg.root, state)
     return state
+
+
+def _fresh_gate(group: list[str]) -> dict[str, Any]:
+    """Which group is in flight, and the tree fingerprints its gate and review last saw."""
+    return {"group": group, "passed": None, "reviewed": None}
+
+
+def tree(root: Path, state: State) -> str:
+    """Fingerprint of the working tree, leaving out the task table that ``done`` ticks."""
+    return fingerprint(root, exclude=(f"{state['spec_dir']}/tasks.md",))
+
+
+def _gate(state: State) -> dict[str, Any]:
+    gate: dict[str, Any] = state.setdefault("gate", _fresh_gate([]))
+    return gate
 
 
 def _task(state: State, task_id: str) -> dict[str, Any]:
@@ -156,9 +174,13 @@ def next_step(cfg: Config) -> dict[str, Any]:
     if not group:
         return {"status": "done", "spec": state["spec"]}
     risk = group[0].risk
+    ids = [t.id for t in group]
+    if _gate(state)["group"] != ids:
+        state["gate"] = _fresh_gate(ids)
+        save(cfg.root, state)
     return {
         "status": "run",
-        "tasks": [t.id for t in group],
+        "tasks": ids,
         "risk": risk,
         "reviewer_model": cfg.models[risk],
         "human_signoff": risk == "human",
@@ -166,15 +188,52 @@ def next_step(cfg: Config) -> dict[str, Any]:
     }
 
 
+def agent_count(state: State) -> int:
+    """Declared (``sdd agent``) or observed (SubagentStop hook) runs, whichever is higher."""
+    return max(int(state["agent_runs"]), int(state.get("observed_agent_runs", 0)))
+
+
+def _cap_agents(cfg: Config, state: State) -> State:
+    if agent_count(state) > cfg.limits.max_agent_runs:
+        return halt(cfg.root, state, f"agent run cap reached ({cfg.limits.max_agent_runs})")
+    save(cfg.root, state)
+    return state
+
+
 def record_agent(cfg: Config, role: str, fresh: bool) -> State:
     state = require(cfg.root)
     state["agent_runs"] += 1
     if role == "implementer" and fresh:
         state["implementer_tasks"] = 0
-    if state["agent_runs"] > cfg.limits.max_agent_runs:
-        return halt(cfg.root, state, f"agent run cap reached ({cfg.limits.max_agent_runs})")
+    return _cap_agents(cfg, state)
+
+
+def observe_agent(cfg: Config) -> State | None:
+    """Count a finished subagent from the SubagentStop hook, so the cap is not honour-based."""
+    state = load(cfg.root)
+    if state is None or not state["active"] or state["halted"]:
+        return None
+    state["observed_agent_runs"] = int(state.get("observed_agent_runs", 0)) + 1
+    return _cap_agents(cfg, state)
+
+
+def record_pass(cfg: Config) -> State | None:
+    """Remember the tree a passing gate saw (only during a run, for the group in flight)."""
+    state = load(cfg.root)
+    if state is None or not state["active"] or not _gate(state)["group"]:
+        return None
+    _gate(state)["passed"] = tree(cfg.root, state)
     save(cfg.root, state)
     return state
+
+
+def current_task(cfg: Config) -> str | None:
+    """First task of the group in flight, which failures are recorded against."""
+    state = load(cfg.root)
+    if state is None or not state["active"]:
+        return None
+    group = _gate(state)["group"]
+    return str(group[0]) if group else None
 
 
 def record_failure(cfg: Config, task_id: str, signature: str) -> State:
@@ -196,6 +255,7 @@ def record_review(cfg: Config, task_id: str, verdict: str) -> State:
     state = require(cfg.root)
     entry = _task(state, task_id)
     entry["review_rounds"] += 1
+    _gate(state)["reviewed"] = tree(cfg.root, state) if verdict == "clean" else None
     if verdict == "changes" and entry["review_rounds"] >= cfg.limits.max_review_rounds:
         return halt(cfg.root, state, f"{task_id}: review round cap reached with open findings")
     save(cfg.root, state)
@@ -209,11 +269,30 @@ def record_assumption(root: Path, task_id: str, text: str) -> State:
     return state
 
 
-def complete(root: Path, task_id: str, human: bool) -> State:
-    state = require(root)
-    set_status(tasks_path(root, state), task_id, HUMAN if human else DONE)
+def done_problem(cfg: Config, state: State, task_id: str) -> str | None:
+    """Why ``task_id`` cannot be ticked yet, or None when it can."""
+    gate = _gate(state)
+    if task_id not in gate["group"]:
+        return f"{task_id} is not in the group in flight ({gate['group']}); run `sdd next`"
+    now = tree(cfg.root, state)
+    if gate["passed"] != now:
+        return "no passing `sdd check` for the code as it is now; run the gate again"
+    if gate["reviewed"] != now:
+        return "no clean review for the code as it is now; review it (again) first"
+    return None
+
+
+def complete(cfg: Config, task_id: str, human: bool = False) -> State:
+    """Tick a task, but only after a passing gate and a clean review of the current tree."""
+    state = require(cfg.root)
+    problem = done_problem(cfg, state, task_id)
+    if problem:
+        raise ValueError(problem)
+    path = tasks_path(cfg.root, state)
+    risk = {t.id: t.risk for t in parse_tasks(path)}[task_id]
+    set_status(path, task_id, HUMAN if human or risk == "human" else DONE)
     state["implementer_tasks"] += 1
-    save(root, state)
+    save(cfg.root, state)
     return state
 
 

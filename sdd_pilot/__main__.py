@@ -25,7 +25,13 @@ from sdd_pilot.remote import telegram_status
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = PLUGIN_ROOT / "bin" / "sdd"
-HOOKS = ("hook-stop", "hook-format", "hook-guard", "hook-session-start")
+HOOKS = (
+    "hook-stop",
+    "hook-format",
+    "hook-guard",
+    "hook-subagent-stop",
+    "hook-session-start",
+)
 
 
 def _start_dir() -> Path:
@@ -40,7 +46,9 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--specs-dir", default="specs")
     init.add_argument("--force", action="store_true")
     check = sub.add_parser("check", help="run the quality gate")
-    check.add_argument("--task", help="record a failure for this task (orchestrator only)")
+    check.add_argument(
+        "--task", help="record failures for this task (default: the group in flight)"
+    )
     brief = sub.add_parser("brief", help="write .sdd/briefs/<first-id>.md")
     brief.add_argument("tasks", nargs="+")
     start = sub.add_parser("start", help="start a run for an approved spec")
@@ -90,6 +98,8 @@ def _hook(command: str) -> int:
             print(json.dumps(decision))
     elif command == "hook-format":
         format_file(cfg, json.load(sys.stdin))
+    elif command == "hook-subagent-stop":
+        run_state.observe_agent(cfg)
     elif command == "hook-guard":
         guard = guard_decision(cfg, json.load(sys.stdin))
         if guard:
@@ -105,7 +115,9 @@ def _check(cfg: cfg_mod.Config, task: str | None) -> int:
     results = run_all(cfg)
     print(format_report(results))
     if all(r.ok for r in results):
+        run_state.record_pass(cfg)
         return 0
+    task = task or run_state.current_task(cfg)
     if task:
         state = run_state.record_failure(cfg, task, signature(results))
         if state["halted"]:
@@ -148,7 +160,7 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         "start": lambda: run_state.start(cfg, args.spec, not args.no_branch_check),
         "agent": lambda: run_state.record_agent(cfg, args.role, args.fresh),
         "review": lambda: run_state.record_review(cfg, args.task, args.verdict),
-        "done": lambda: run_state.complete(root, args.task, args.human),
+        "done": lambda: run_state.complete(cfg, args.task, args.human),
         "assume": lambda: run_state.record_assumption(root, args.task, args.text),
         "halt": lambda: run_state.halt(root, run_state.require(root), args.reason),
         "resume": lambda: run_state.resume(root),
