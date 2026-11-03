@@ -41,7 +41,8 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
       `SDD assume <task> "<text>"`.
    5. **Gate.** `SDD check` (failures are recorded against the group in flight). On FAIL,
       send the failing lines to the implementer and gate again. `HALTED` → step 4.
-   6. **Review.** Start, or reuse via SendMessage, one reviewer per model, with
+   6. **Review.** Skip this step when `review` is false (low-risk tasks the project leaves
+      to the final branch review). Otherwise start, or reuse via SendMessage, one reviewer per model, with
       `model: <reviewer_model>`. Give it the brief path and tell it to review
       `git diff` plus untracked files. Run `SDD agent reviewer`, then
       `SDD review <first id> clean|changes`.

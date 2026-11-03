@@ -187,7 +187,8 @@ def next_step(cfg: Config) -> dict[str, Any]:
         "status": "run",
         "tasks": ids,
         "risk": risk,
-        "reviewer_model": cfg.models[risk],
+        "review": risk not in cfg.review_skip,
+        "reviewer_model": None if risk in cfg.review_skip else cfg.models[risk],
         "human_signoff": risk == "human",
         "restart_implementer": state["implementer_tasks"] >= cfg.limits.restart_after_tasks,
     }
@@ -274,7 +275,7 @@ def record_assumption(root: Path, task_id: str, text: str) -> State:
     return state
 
 
-def done_problem(cfg: Config, state: State, task_id: str) -> str | None:
+def done_problem(cfg: Config, state: State, task_id: str, risk: str = "high") -> str | None:
     """Why ``task_id`` cannot be ticked yet, or None when it can."""
     gate = _gate(state)
     if task_id not in gate["group"]:
@@ -282,7 +283,7 @@ def done_problem(cfg: Config, state: State, task_id: str) -> str | None:
     now = tree(cfg.root, state)
     if gate["passed"] != now:
         return "no passing `sdd check` for the code as it is now; run the gate again"
-    if gate["reviewed"] != now:
+    if risk not in cfg.review_skip and gate["reviewed"] != now:
         return "no clean review for the code as it is now; review it (again) first"
     return None
 
@@ -290,11 +291,11 @@ def done_problem(cfg: Config, state: State, task_id: str) -> str | None:
 def complete(cfg: Config, task_id: str, human: bool = False) -> State:
     """Tick a task, but only after a passing gate and a clean review of the current tree."""
     state = require(cfg.root)
-    problem = done_problem(cfg, state, task_id)
+    path = tasks_path(cfg.root, state)
+    risk = {t.id: t.risk for t in parse_tasks(path)}.get(task_id, "high")
+    problem = done_problem(cfg, state, task_id, risk)
     if problem:
         raise ValueError(problem)
-    path = tasks_path(cfg.root, state)
-    risk = {t.id: t.risk for t in parse_tasks(path)}[task_id]
     set_status(path, task_id, HUMAN if human or risk == "human" else DONE)
     state["implementer_tasks"] += 1
     save(cfg.root, state)

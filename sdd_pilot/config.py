@@ -93,6 +93,7 @@ class Config:
     path_roots: tuple[str, ...] = ()  # empty: the project's top-level folders
     graphify: bool = True
     guard: tuple[str, ...] = GUARD_FILES
+    review_skip: tuple[str, ...] = ()  # risks reviewed only by the final branch review
     graphify_auto: bool = True  # keep a code graph built and fresh, in the background
     graphify_version: str = GRAPHIFY_VERSION
 
@@ -118,6 +119,15 @@ def _tuple(value: Any) -> tuple[str, ...]:
     if isinstance(value, str):
         return (value,)
     return tuple(str(v) for v in value or ())
+
+
+def _review_skip(raw: dict[str, Any]) -> tuple[str, ...]:
+    skip = _tuple(raw.get("skip", ()))
+    if set(skip) - {"low"}:
+        raise ValueError(
+            "[review] skip may only contain 'low'; high and human risk are always reviewed"
+        )
+    return skip
 
 
 def _regex(pattern: str, where: str) -> None:
@@ -193,6 +203,7 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         guard=_tuple(project.get("guard", GUARD_FILES)),
         graphify_auto=bool(graph.get("auto", True)),
         graphify_version=str(graph.get("version", GRAPHIFY_VERSION)),
+        review_skip=_review_skip(raw.get("review", {})),
     )
 
 

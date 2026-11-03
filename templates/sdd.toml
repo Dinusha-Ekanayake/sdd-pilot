@@ -26,6 +26,11 @@ low = "sonnet"
 high = "opus"
 human = "opus"
 
+# Per-task reviews. skip = ["low"] saves a reviewer run per low-risk group; the final
+# Opus review of the branch still covers those tasks. High and human risk always get one.
+[review]
+skip = []
+
 [limits]
 max_review_rounds = 2
 max_fix_attempts = 3

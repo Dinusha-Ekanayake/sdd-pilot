@@ -255,3 +255,30 @@ def test_observed_subagents_count_toward_the_cap(repo: Path) -> None:
     state = run_state.observe_agent(cfg)
     assert state is not None and "agent run cap" in state["halted"]
     assert run_state.observe_agent(cfg) is None  # halted runs are left alone
+
+
+def test_low_risk_review_can_be_left_to_the_final_review(repo: Path) -> None:
+    cfg = write_config(repo, '[review]\nskip = ["low"]\n')
+    _start(cfg)
+    tick(cfg, "T-009-02")
+    tick(cfg, "T-009-03")
+    tick(cfg, "T-009-04")
+    step = run_state.next_step(cfg)
+    assert step["tasks"] == ["T-009-05"] and step["review"] is False
+    assert step["reviewer_model"] is None
+    run_state.record_pass(cfg)
+    run_state.complete(cfg, "T-009-05")  # no review needed for low risk
+
+
+def test_high_risk_still_needs_review_when_low_is_skipped(repo: Path) -> None:
+    cfg = write_config(repo, '[review]\nskip = ["low"]\n')
+    _start(cfg)
+    assert run_state.next_step(cfg)["review"] is True
+    run_state.record_pass(cfg)
+    with pytest.raises(ValueError, match="no clean review"):
+        run_state.complete(cfg, "T-009-02")
+
+
+def test_only_low_risk_reviews_can_be_skipped(repo: Path) -> None:
+    with pytest.raises(ValueError, match="only contain 'low'"):
+        write_config(repo, '[review]\nskip = ["high"]\n')
