@@ -8,6 +8,7 @@ import hashlib
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -27,6 +28,23 @@ class StepResult:
     detail: tuple[str, ...]
 
 
+PYTHON_PLACEHOLDER = "{python}"
+_VENV_PYTHONS = (
+    ".venv/Scripts/python.exe",
+    ".venv/bin/python",
+    "venv/Scripts/python.exe",
+    "venv/bin/python",
+)
+
+
+def project_python(root: Path) -> str:
+    """The project's virtual environment Python, else the interpreter running sdd."""
+    for candidate in _VENV_PYTHONS:
+        if (root / candidate).is_file():
+            return str(root / candidate)
+    return sys.executable
+
+
 def resolve_cmd(cmd: tuple[str, ...], root: Path) -> list[str]:
     """Find the executable the way a shell would (``npm`` is ``npm.cmd`` on Windows).
 
@@ -34,7 +52,7 @@ def resolve_cmd(cmd: tuple[str, ...], root: Path) -> list[str]:
     the repository. A bare name such as ``python`` always comes from ``PATH``, so a file
     committed as ``python`` at the repository root cannot stand in for it.
     """
-    exe = cmd[0]
+    exe = project_python(root) if cmd[0] == PYTHON_PLACEHOLDER else cmd[0]
     has_sep = "/" in exe or "\\" in exe
     local = root / exe
     found = str(local) if has_sep and local.is_file() else shutil.which(exe)

@@ -123,7 +123,7 @@ def test_format_hook_ignores_other_suffixes_and_missing_files(repo: Path) -> Non
 
 def test_init_creates_everything_once(tmp_path: Path) -> None:
     first = init_project(tmp_path, "python")
-    assert "wrote sdd.toml (python preset, trusted)" in first
+    assert "wrote sdd.toml (python project; checks: tests; trusted)" in first
     assert trust.config_trusted(tmp_path)
     assert (tmp_path / "specs" / "_template" / "tasks.md").exists()
     assert ".sdd/" in (tmp_path / ".gitignore").read_text()
@@ -162,16 +162,16 @@ def test_init_keeps_existing_settings(tmp_path: Path) -> None:
     assert merged["model"] == "x" and "Bash(ls:*)" in merged["permissions"]["allow"]
 
 
-@pytest.mark.parametrize("preset", ["python", "node", "generic"])
+@pytest.mark.parametrize("preset", ["auto", "python", "node", "go", "rust", "generic"])
 def test_every_preset_is_valid_toml(tmp_path: Path, preset: str) -> None:
     (tmp_path / "sdd.toml").write_text(render_config(tmp_path, preset), encoding="utf-8")
     config.load(tmp_path)
 
 
-def test_python_preset_uses_project_venv(tmp_path: Path) -> None:
-    (tmp_path / ".venv" / "bin").mkdir(parents=True)
-    (tmp_path / ".venv" / "bin" / "python").write_text("")
-    assert '".venv/bin/python", "-m", "pytest"' in render_config(tmp_path, "python")
+def test_init_writes_the_chosen_specs_dir(tmp_path: Path) -> None:
+    init_project(tmp_path, "generic", specs_dir="docs/specs")
+    assert config.load(tmp_path).specs_dir == "docs/specs"
+    assert (tmp_path / "docs" / "specs" / "_template" / "spec.md").exists()
 
 
 def test_unknown_preset_rejected(tmp_path: Path) -> None:

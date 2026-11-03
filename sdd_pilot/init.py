@@ -7,9 +7,9 @@ from typing import Any
 
 from sdd_pilot import trust
 from sdd_pilot.config import CONFIG_FILE
+from sdd_pilot.presets import detect_stack, preset_for, render_checks, render_format
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
-PRESETS = ("python", "node", "generic")
 SDD = "bash .sdd/bin/sdd"
 
 ALLOW = [
@@ -41,18 +41,20 @@ DENY = [
 ]
 
 
-def _python_exe(root: Path) -> str:
-    for candidate in (".venv/Scripts/python.exe", ".venv/bin/python", "venv/bin/python"):
-        if (root / candidate).exists():
-            return candidate
-    return "python"
-
-
-def render_config(root: Path, preset: str) -> str:
-    if preset not in PRESETS:
-        raise ValueError(f"preset must be one of {PRESETS}")
-    text = (TEMPLATES / f"sdd.{preset}.toml").read_text(encoding="utf-8")
-    return text.replace("{python}", _python_exe(root))
+def render_config(root: Path, preset: str = "auto", specs_dir: str = "specs") -> str:
+    """``sdd.toml`` for this project, with the gate built from what it already uses."""
+    chosen = preset_for(root, preset)
+    text = (TEMPLATES / CONFIG_FILE).read_text(encoding="utf-8")
+    scan = "[" + ", ".join(f'"{name}"' for name in chosen.scan) + "]"
+    for marker, value in (
+        ("@@STACK@@", chosen.stack),
+        ("@@SPECS_DIR@@", specs_dir),
+        ("@@CHECKS@@", render_checks(chosen)),
+        ("@@FORMAT@@", render_format(chosen)),
+        ("@@SCAN@@", scan),
+    ):
+        text = text.replace(marker, value)
+    return text
 
 
 def _merge_settings(path: Path) -> list[str]:
@@ -81,7 +83,7 @@ def _ensure_gitignore(root: Path) -> bool:
 
 
 def init_project(
-    root: Path, preset: str, specs_dir: str = "specs", force: bool = False
+    root: Path, preset: str = "auto", specs_dir: str = "specs", force: bool = False
 ) -> list[str]:
     """Create what is missing and report each change. Never overwrites without ``force``."""
     done = []
@@ -91,9 +93,11 @@ def init_project(
         if not trust.config_trusted(root):
             done.append(f"review {CONFIG_FILE}, then run `{SDD} trust` before the first check")
     else:
-        config.write_text(render_config(root, preset), encoding="utf-8")
+        stack = detect_stack(root) if preset == "auto" else preset
+        config.write_text(render_config(root, stack, specs_dir), encoding="utf-8")
         trust.trust_config(root)  # the user asked for this file, so it starts trusted
-        done.append(f"wrote {CONFIG_FILE} ({preset} preset, trusted)")
+        steps = ", ".join(step.name for step in preset_for(root, stack).checks) or "none found"
+        done.append(f"wrote {CONFIG_FILE} ({stack} project; checks: {steps}; trusted)")
     template_dir = root / specs_dir / "_template"
     template_dir.mkdir(parents=True, exist_ok=True)
     for name in ("spec.md", "plan.md", "tasks.md"):

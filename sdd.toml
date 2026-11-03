@@ -11,29 +11,29 @@ approved_word = "Approved"
 # `keep` is a regex for the output lines worth showing when the step fails.
 [[check]]
 name = "lint"
-cmd = [".venv/Scripts/python.exe", "-m", "ruff", "check", ".", "--output-format", "concise"]
+cmd = ["{python}", "-m", "ruff", "check", ".", "--output-format", "concise"]
 keep = ':\d+:\d+:'
 
 [[check]]
 name = "format"
-cmd = [".venv/Scripts/python.exe", "-m", "ruff", "format", "--check", "."]
+cmd = ["{python}", "-m", "ruff", "format", "--check", "."]
 keep = '^Would reformat'
 
 [[check]]
 name = "types"
-cmd = [".venv/Scripts/python.exe", "-m", "mypy"]
+cmd = ["{python}", "-m", "mypy"]
 keep = 'error:'
 
 [[check]]
 name = "tests"
-cmd = [".venv/Scripts/python.exe", "-m", "pytest", "-q", "--tb=line", "--cov", "--cov-report=term"]
+cmd = ["{python}", "-m", "pytest", "-q", "--tb=line", "--cov", "--cov-report=term"]
 keep = '^(FAILED|ERROR)|Required test coverage|\.py:\d+: '
 
 # Formatters run on each file Claude edits, by suffix. {file} is the edited path.
 [format]
 ".py" = [
-  [".venv/Scripts/python.exe", "-m", "ruff", "format", "{file}"],
-  [".venv/Scripts/python.exe", "-m", "ruff", "check", "--fix", "--select", "I", "{file}"],
+  ["{python}", "-m", "ruff", "format", "{file}"],
+  ["{python}", "-m", "ruff", "check", "--fix", "--select", "I", "{file}"],
 ]
 
 # Wording the project must never use (case-insensitive regexes). A match right after

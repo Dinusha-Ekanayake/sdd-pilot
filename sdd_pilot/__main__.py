@@ -20,7 +20,8 @@ from sdd_pilot.hooks import (
     stop_decision,
     write_shim,
 )
-from sdd_pilot.init import PRESETS, init_project
+from sdd_pilot.init import init_project
+from sdd_pilot.presets import PRESETS
 from sdd_pilot.remote import telegram_status
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -42,7 +43,7 @@ def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="sdd", description="Spec-driven runs for Claude Code")
     sub = parser.add_subparsers(dest="command", required=True)
     init = sub.add_parser("init", help="set up sdd.toml, templates and permissions")
-    init.add_argument("--preset", choices=PRESETS, default="generic")
+    init.add_argument("--preset", choices=PRESETS, default="auto")
     init.add_argument("--specs-dir", default="specs")
     init.add_argument("--force", action="store_true")
     check = sub.add_parser("check", help="run the quality gate")
