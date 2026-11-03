@@ -239,3 +239,32 @@ def test_hanging_step_times_out(repo: Path) -> None:
     step = CheckStep("slow", (PY, "-c", "import time; time.sleep(5)"), timeout=1)
     result = run_step(repo, step)
     assert not result.ok and "timed out after 1s" in result.detail[0]
+
+
+# --- brief parsing ----------------------------------------------------------------
+
+
+def test_signatures_include_async_and_survive_syntax_errors(tmp_path: Path) -> None:
+    good = tmp_path / "mod.py"
+    good.write_text("async def fetch(url: str) -> bytes:\n    '''Get it.'''\n")
+    assert signatures(good) == ["async def fetch(url: str) -> bytes  # Get it."]
+    bad = tmp_path / "broken.py"
+    bad.write_text("def broken(:\n")
+    assert signatures(bad)[0].startswith("(could not parse")
+
+
+def test_flat_layout_package_is_found_without_config(repo: Path) -> None:
+    pkg = repo / "mypkg"
+    pkg.mkdir()
+    (pkg / "core.py").write_text("def run() -> None: ...\n")
+    plan = repo / "specs" / "009-demo" / "plan.md"
+    plan.write_text("| `mypkg/core.py` | `make_demo` lives here |\n")
+    brief = build_brief(config.load(repo), repo / "specs" / "009-demo", ["T-009-02"])
+    assert "### mypkg/core.py\ndef run() -> None" in brief
+
+
+def test_plan_lines_are_capped(repo: Path) -> None:
+    plan = repo / "specs" / "009-demo" / "plan.md"
+    plan.write_text("".join(f"`features/demo` line {i}\n" for i in range(100)))
+    brief = build_brief(config.load(repo), repo / "specs" / "009-demo", ["T-009-03"])
+    assert "(+60 more lines cut; see BRIEF GAPS)" in brief

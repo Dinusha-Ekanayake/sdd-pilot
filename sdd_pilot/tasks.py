@@ -31,7 +31,22 @@ class Task:
 
 
 def _cells(line: str) -> list[str]:
-    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+    """Split a table row on ``|``, except inside backticks or when escaped as ``\\|``."""
+    cells, current, in_code, chars = [], [], False, iter(line.strip().strip("|"))
+    for char in chars:
+        if char == "\\":
+            nxt = next(chars, "")
+            current.append("|" if nxt == "|" else char + nxt)
+        elif char == "`":
+            in_code = not in_code
+            current.append(char)
+        elif char == "|" and not in_code:
+            cells.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    cells.append("".join(current).strip())
+    return cells
 
 
 def parse_tasks(path: Path) -> list[Task]:
@@ -64,7 +79,10 @@ def set_status(path: Path, task_id: str, status: str) -> None:
         match = _ROW.match(line)
         if match and match.group(1) == task_id:
             ending = "\n" if line.endswith("\n") else ""
-            lines[i] = _STATUS_CELL.sub(f"{status} |", line.rstrip("\n")) + ending
+            new_line, count = _STATUS_CELL.subn(f"{status} |", line.rstrip("\n"))
+            if count != 1:
+                raise ValueError(f"{task_id}: the Status cell must be the last column of the row")
+            lines[i] = new_line + ending
             path.write_text("".join(lines), encoding="utf-8")
             return
     raise ValueError(f"task {task_id} not found in {path}")

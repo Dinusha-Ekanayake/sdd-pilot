@@ -130,3 +130,24 @@ def test_next_group_caps_high_risk_and_isolates_human(repo: Path) -> None:
     rest = [t for t in tasks if t.id in ("T-009-01", "T-009-06")]
     assert [t.id for t in next_group(rest)] == ["T-009-06"]
     assert next_group([t for t in tasks if not t.pending]) == []
+
+
+def test_pipes_inside_backticks_or_escaped_stay_in_the_cell(tmp_path: Path) -> None:
+    path = tmp_path / "tasks.md"
+    path.write_text(
+        "| ID | Task | Test | Risk | Status |\n|---|---|---|---|---|\n"
+        "| T-001-01 | parse `a | b` and a \| c | ok | low | [ ] |\n"
+    )
+    task = parse_tasks(path)[0]
+    assert task.text == "parse `a | b` and a | c" and task.status == "[ ]"
+
+
+def test_set_status_refuses_when_status_is_not_the_last_column(tmp_path: Path) -> None:
+    path = tmp_path / "tasks.md"
+    path.write_text(
+        "| ID | Task | Test | Status | Risk |\n|---|---|---|---|---|\n"
+        "| T-001-01 | x | y | [ ] | low |\n"
+    )
+    with pytest.raises(ValueError, match="last column"):
+        set_status(path, "T-001-01", "[x]")
+    assert "[ ]" in path.read_text()

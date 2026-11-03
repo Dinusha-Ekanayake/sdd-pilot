@@ -11,6 +11,12 @@ from sdd_pilot.tasks import Task, parse_tasks
 
 BRIEF_DIR = Path(".sdd") / "briefs"
 GRAPHIFY_BUDGET = 400
+# Size caps, so one broad plan cannot turn a brief into a copy of the codebase.
+MAX_PLAN_LINES = 40
+MAX_API_FILES = 12
+MAX_SIGNATURES = 25
+COMMON_ROOTS = ("src", "lib", "app", "tests", "scripts", "configs", "docs")
+_NOT_SOURCE = {"node_modules", "venv", "dist", "build", "target", "graphify-out", "specs"}
 _BACKTICKED = re.compile(r"`([^`]+)`")
 _REQ_OR_AC = re.compile(r"^- (?:\[[ x]\] )?(?:REQ|AC)-")
 _JS_EXPORT = re.compile(
@@ -68,16 +74,22 @@ def _matching_lines(path: Path, tokens: set[str]) -> list[str]:
 
 def signatures(path: Path) -> list[str]:
     """Public top-level names: Python via ast, JS/TS via ``export`` lines."""
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8", errors="replace")
     if path.suffix != ".py":
         return [m.group(0).strip() for line in text.splitlines() if (m := _JS_EXPORT.match(line))]
+    try:
+        body = ast.parse(text).body
+    except SyntaxError as error:
+        return [f"(could not parse: {error.msg}, line {error.lineno})"]
     out = []
-    for node in ast.parse(text).body:
-        if not isinstance(node, ast.FunctionDef | ast.ClassDef) or node.name.startswith("_"):
+    functions = ast.FunctionDef | ast.AsyncFunctionDef
+    for node in body:
+        if not isinstance(node, functions | ast.ClassDef) or node.name.startswith("_"):
             continue
-        if isinstance(node, ast.FunctionDef):
+        if isinstance(node, functions):
             ret = f" -> {ast.unparse(node.returns)}" if node.returns else ""
-            head = f"def {node.name}({ast.unparse(node.args)}){ret}"
+            prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
+            head = f"{prefix} {node.name}({ast.unparse(node.args)}){ret}"
         else:
             head = f"class {node.name}"
         doc = (ast.get_docstring(node) or "").split("\n")[0]
@@ -105,8 +117,31 @@ def _graphify(root: Path, query: str) -> str:
     return "\n".join(line for line in proc.stdout.splitlines() if line.startswith("NODE"))
 
 
+def path_roots(cfg: Config) -> tuple[str, ...]:
+    """Configured roots, or common source folders plus the project's own top-level folders
+    (so flat layouts such as ``mypkg/`` work, and so does a ``src/`` the plan creates)."""
+    if cfg.path_roots:
+        return cfg.path_roots
+    existing = {
+        entry.name
+        for entry in cfg.root.iterdir()
+        if entry.is_dir()
+        and not entry.name.startswith((".", "_"))
+        and entry.name not in _NOT_SOURCE
+    }
+    return tuple(sorted(existing | set(COMMON_ROOTS)))
+
+
+def _capped(lines: list[str], limit: int, what: str) -> list[str]:
+    if len(lines) <= limit:
+        return lines
+    return [*lines[:limit], f"(+{len(lines) - limit} more {what} cut; see BRIEF GAPS)"]
+
+
 def _api_section(cfg: Config, plan_lines: list[str]) -> list[str]:
-    roots = "|".join(re.escape(r) for r in cfg.path_roots)
+    roots = "|".join(re.escape(r) for r in path_roots(cfg))
+    if not roots:
+        return []
     path_re = re.compile(rf"(?:{roots})/[\w/.-]+\.\w+")
     named = set(path_re.findall("\n".join(plan_lines)))
     # A new module should reuse what its package already has, so show its siblings too.
@@ -118,12 +153,16 @@ def _api_section(cfg: Config, plan_lines: list[str]) -> list[str]:
         if not sibling.name.startswith("__init__")
     }
     apis = []
-    for rel in sorted(named | siblings | set(cfg.helper_files)):
+    chosen = sorted(named | siblings | set(cfg.helper_files))
+    for rel in chosen[:MAX_API_FILES]:
         path = cfg.root / rel
         if not path.exists():
             apis.append(f"### {rel}\n(new file)")
         elif path.suffix in (".py", ".ts", ".tsx", ".js", ".mjs"):
-            apis.append(f"### {rel}\n" + "\n".join(signatures(path) or ["(no public names)"]))
+            names = _capped(signatures(path) or ["(no public names)"], MAX_SIGNATURES, "names")
+            apis.append(f"### {rel}\n" + "\n".join(names))
+    if len(chosen) > MAX_API_FILES:
+        apis.append(f"(+{len(chosen) - MAX_API_FILES} more files cut; see BRIEF GAPS)")
     return apis
 
 
@@ -134,7 +173,7 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
         raise ValueError(f"unknown tasks: {missing}")
     chosen: list[Task] = [tasks[i] for i in task_ids]
     tokens = set().union(*(_tokens(f"{t.text} {t.test}") for t in chosen))
-    plan_lines = _matching_lines(spec_dir / "plan.md", tokens)
+    plan_lines = _capped(_matching_lines(spec_dir / "plan.md", tokens), MAX_PLAN_LINES, "lines")
     spec_lines = (spec_dir / "spec.md").read_text(encoding="utf-8").splitlines()
     requirements = [line for line in spec_lines if _REQ_OR_AC.match(line)]
 

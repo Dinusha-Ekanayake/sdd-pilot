@@ -89,7 +89,7 @@ class Config:
     max_group: int = 3
     max_group_high: int = 2
     helper_files: tuple[str, ...] = ()
-    path_roots: tuple[str, ...] = ("src", "lib", "app", "tests", "scripts", "configs", "docs")
+    path_roots: tuple[str, ...] = ()  # empty: the project's top-level folders
     graphify: bool = True
     guard: tuple[str, ...] = GUARD_FILES
 
@@ -184,7 +184,7 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         max_group=int(groups.get("max_size", 3)),
         max_group_high=int(groups.get("max_high", 2)),
         helper_files=_tuple(brief.get("helper_files")),
-        path_roots=_tuple(brief.get("path_roots", Config.path_roots)),
+        path_roots=_tuple(brief.get("path_roots", ())),
         graphify=bool(brief.get("graphify", True)),
         guard=_tuple(project.get("guard", GUARD_FILES)),
     )
