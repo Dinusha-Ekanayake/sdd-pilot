@@ -12,6 +12,7 @@ from sdd_pilot import state as run_state
 from sdd_pilot import trust
 from sdd_pilot.brief import write_brief
 from sdd_pilot.check import format_report, run_all, signature
+from sdd_pilot.doctor import format_findings, run_doctor
 from sdd_pilot.hooks import (
     SDD,
     format_file,
@@ -76,6 +77,8 @@ def _parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status")
     status.add_argument("--json", action="store_true")
     sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
+    doctor = sub.add_parser("doctor", help="check the setup and say how to fix problems")
+    doctor.add_argument("--json", action="store_true")
     for name in ("next", "resume", "stop", "remote", *HOOKS):
         sub.add_parser(name)
     return parser
@@ -118,6 +121,15 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
         write_shim(cfg.root, LAUNCHER)
         context = {"hookEventName": "SessionStart", "additionalContext": session_context()}
         print(json.dumps({"hookSpecificOutput": context}))
+
+
+def _doctor(as_json: bool) -> int:
+    found = run_doctor(_start_dir())
+    if as_json:
+        print(json.dumps([vars(item) for item in found], indent=2))
+    else:
+        print(format_findings(found))
+    return 1 if any(item.level == "FAIL" for item in found) else 0
 
 
 def _check(cfg: cfg_mod.Config, task: str | None) -> int:
@@ -186,6 +198,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in HOOKS:
         return _hook(args.command)
     try:
+        if args.command == "doctor":
+            return _doctor(args.json)
         if args.command == "init":
             root = _start_dir()
             for line in init_project(root, args.preset, args.specs_dir, args.force):
