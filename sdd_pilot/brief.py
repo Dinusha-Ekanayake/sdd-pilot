@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from sdd_pilot.config import Config
+from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import Task, parse_tasks
 
 BRIEF_DIR = Path(".sdd") / "briefs"
@@ -181,6 +182,7 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
 
 def write_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sdd") -> Path:
     path = cfg.root / BRIEF_DIR / f"{task_ids[0]}.md"
+    ensure_safe(cfg.root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(build_brief(cfg, spec_dir, task_ids, sdd), encoding="utf-8")
     return path

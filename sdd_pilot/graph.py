@@ -17,6 +17,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from sdd_pilot.config import GRAPHIFY_VERSION as DEFAULT_VERSION
+from sdd_pilot.safefs import ensure_safe
 
 PACKAGE = "graphifyy"
 OUT_DIR = "graphify-out"
@@ -137,12 +138,14 @@ def ensure_ignores(root: Path) -> list[str]:
     done = []
     ignore = root / IGNORE_FILE
     if not ignore.exists():
+        ensure_safe(root, ignore)
         ignore.write_text(IGNORE_DEFAULTS, encoding="utf-8")
         done.append(f"wrote {IGNORE_FILE}")
     gitignore = root / ".gitignore"
     text = gitignore.read_text(encoding="utf-8") if gitignore.exists() else ""
     if not any(line.strip().rstrip("/") == OUT_DIR for line in text.splitlines()):
         prefix = "" if not text or text.endswith("\n") else "\n"
+        ensure_safe(root, gitignore)
         gitignore.write_text(f"{text}{prefix}{OUT_DIR}/\n", encoding="utf-8")
         done.append(f"added {OUT_DIR}/ to .gitignore")
     return done
@@ -181,6 +184,11 @@ def _locked(root: Path) -> bool:
 def start_background_sync(root: Path, entry: Path) -> bool:
     """Run ``sdd graph sync`` detached, so a session never waits for it. One at a time."""
     if _locked(root) or not needs_sync(root):
+        return False
+    try:
+        ensure_safe(root, root / LOCK_FILE)
+        ensure_safe(root, root / LOG_FILE)
+    except ValueError:
         return False
     (root / LOCK_FILE).parent.mkdir(parents=True, exist_ok=True)
     (root / LOCK_FILE).write_text(str(os.getpid()), encoding="utf-8")

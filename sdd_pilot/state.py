@@ -13,6 +13,7 @@ from sdd_pilot import trust
 from sdd_pilot.config import Config
 from sdd_pilot.dashboard import write_dashboard
 from sdd_pilot.graph import ensure_ignores
+from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
 from sdd_pilot.worktree import fingerprint
 
@@ -33,6 +34,7 @@ def load(root: Path) -> State | None:
 
 def save(root: Path, state: State) -> None:
     path = root / STATE_FILE
+    ensure_safe(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")  # write then rename, so a crash never leaves half a file
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -79,6 +81,7 @@ def approve(cfg: Config, spec: str, via: str) -> str:
         raise ValueError(f"{path.name} has no status line matching {cfg.status_regex!r}")
     stamp = f"{cfg.approved_word} ({date.today().isoformat()})"
     new_text = re.sub(cfg.status_regex, lambda m: f"{m.group(1)}{stamp}", text, count=1)
+    ensure_safe(cfg.root, path)
     path.write_text(new_text, encoding="utf-8")
     digest = approval_digest(path.parent)
     trust.record_approval(cfg.root, spec, digest)
@@ -89,6 +92,7 @@ def approve(cfg: Config, spec: str, via: str) -> str:
         "via": via,  # reported by the caller; the permission prompt is the real gate
     }
     log = cfg.root / APPROVALS_FILE
+    ensure_safe(cfg.root, log)
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry) + "\n")
@@ -367,6 +371,7 @@ def complete(cfg: Config, task_id: str, human: bool = False) -> State:
     if problem:
         raise ValueError(problem)
     status = HUMAN if human or risk == "human" else DONE
+    ensure_safe(cfg.root, path)
     set_status(path, task_id, status)
     ticks = trust.recorded_ticks(cfg.root, state["spec"]) or {}
     trust.record_ticks(cfg.root, state["spec"], {**ticks, task_id: status})

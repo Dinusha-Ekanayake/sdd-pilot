@@ -8,6 +8,7 @@ from typing import Any
 from sdd_pilot import trust
 from sdd_pilot.config import CONFIG_FILE
 from sdd_pilot.presets import detect_stack, preset_for, render_checks, render_format
+from sdd_pilot.safefs import ensure_safe
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 SDD = "bash .sdd/bin/sdd"
@@ -69,6 +70,7 @@ def _merge_settings(path: Path) -> list[str]:
             if rule not in existing:
                 existing.append(rule)
                 added.append(f"{key}: {rule}")
+    ensure_safe(path.parent.parent, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return added
@@ -84,6 +86,7 @@ def enable_statusline(root: Path) -> str:
     if "statusLine" in settings:
         return f"kept the existing status line; add `{SDD} statusline` to it to show the run"
     settings["statusLine"] = STATUSLINE
+    ensure_safe(root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return "status line enabled in .claude/settings.local.json"
@@ -95,6 +98,7 @@ def _ensure_gitignore(root: Path) -> bool:
     if any(line.strip() in (".sdd", ".sdd/") for line in text.splitlines()):
         return False
     prefix = "" if not text or text.endswith("\n") else "\n"
+    ensure_safe(root, path)
     path.write_text(f"{text}{prefix}\n# sdd-pilot run state\n.sdd/\n", encoding="utf-8")
     return True
 
@@ -112,6 +116,7 @@ def init_project(
     else:
         replacing = config.exists()
         stack = detect_stack(root) if preset == "auto" else preset
+        ensure_safe(root, config)
         config.write_text(render_config(root, stack, specs_dir), encoding="utf-8")
         steps = ", ".join(step.name for step in preset_for(root, stack).checks) or "none found"
         if replacing:
@@ -127,6 +132,7 @@ def init_project(
     for name in ("spec.md", "plan.md", "tasks.md"):
         target = template_dir / name
         if not target.exists() or force:
+            ensure_safe(root, target)
             shutil.copyfile(TEMPLATES / name, target)
             done.append(f"wrote {target.relative_to(root).as_posix()}")
     if _ensure_gitignore(root):

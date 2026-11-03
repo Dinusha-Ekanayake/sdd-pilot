@@ -10,6 +10,7 @@ from sdd_pilot import state as run_state
 from sdd_pilot import trust
 from sdd_pilot.check import resolve_cmd
 from sdd_pilot.config import Config
+from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import parse_tasks
 
 SHIM = Path(".sdd") / "bin" / "sdd"
@@ -138,6 +139,7 @@ def format_file(cfg: Config, payload: dict[str, Any]) -> None:
 def write_shim(root: Path, launcher: Path) -> Path:
     """``.sdd/bin/sdd`` points at this plugin version, so permission rules stay stable."""
     shim = root / SHIM
+    ensure_safe(root, shim)
     shim.parent.mkdir(parents=True, exist_ok=True)
     target = shlex.quote(launcher.as_posix())
     shim.write_text(

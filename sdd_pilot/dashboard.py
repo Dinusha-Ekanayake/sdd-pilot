@@ -8,6 +8,7 @@ import html
 from pathlib import Path
 from typing import Any
 
+from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import DONE, HUMAN, Task, parse_tasks
 
 DASHBOARD_FILE = Path(".sdd") / "dashboard.html"
@@ -138,6 +139,7 @@ def write_dashboard(root: Path, state: State) -> Path | None:
     try:
         tasks = parse_tasks(root / str(state["spec_dir"]) / "tasks.md")
         path = root / DASHBOARD_FILE
+        ensure_safe(root, path)
         path.write_text(render_dashboard(state, tasks), encoding="utf-8")
     except (OSError, ValueError, KeyError):
         return None
