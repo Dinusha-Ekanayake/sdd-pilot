@@ -94,6 +94,8 @@ def test_python_placeholder_prefers_the_project_venv(tmp_path: Path) -> None:
     venv = tmp_path / ".venv" / "bin" / "python"
     venv.parent.mkdir(parents=True)
     venv.write_text("")
+    assert project_python(tmp_path) == sys.executable  # no pyvenv.cfg: not a venv
+    (tmp_path / ".venv" / "pyvenv.cfg").write_text("home = /usr/bin\n")
     assert project_python(tmp_path) == str(venv)
     assert resolve_cmd(("{python}", "-m", "pytest"), tmp_path)[0] == str(venv)
 
@@ -101,3 +103,15 @@ def test_python_placeholder_prefers_the_project_venv(tmp_path: Path) -> None:
 def test_unknown_preset(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="preset"):
         preset_for(tmp_path, "cobol")
+
+
+def test_a_committed_venv_is_never_used(tmp_path: Path) -> None:
+    import subprocess
+
+    venv = tmp_path / ".venv" / "bin" / "python"
+    venv.parent.mkdir(parents=True)
+    venv.write_text("#!/bin/sh\n")
+    (tmp_path / ".venv" / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    for args in (["init", "-q"], ["add", "-f", ".venv/bin/python"]):
+        subprocess.run(["git", *args], cwd=tmp_path, check=True, capture_output=True)
+    assert project_python(tmp_path) == sys.executable

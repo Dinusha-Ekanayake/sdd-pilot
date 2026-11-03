@@ -37,10 +37,33 @@ _VENV_PYTHONS = (
 )
 
 
+def _committed(root: Path, rel: str) -> bool:
+    """True when git tracks ``rel``: a real virtual environment is never committed."""
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", rel],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return proc.returncode == 0
+
+
 def project_python(root: Path) -> str:
-    """The project's virtual environment Python, else the interpreter running sdd."""
+    """The project's virtual environment Python, else the interpreter running sdd.
+
+    A venv counts only if it looks like one (``pyvenv.cfg``) and is not in git, so a cloned
+    repository cannot ship the interpreter the gate and the format hook run.
+    """
     for candidate in _VENV_PYTHONS:
-        if (root / candidate).is_file():
+        venv = root / candidate.split("/")[0]
+        if (
+            (root / candidate).is_file()
+            and (venv / "pyvenv.cfg").is_file()
+            and not _committed(root, candidate)
+        ):
             return str(root / candidate)
     return sys.executable
 
