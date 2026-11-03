@@ -42,6 +42,8 @@ def _parser() -> argparse.ArgumentParser:
     approve = sub.add_parser("approve", help="mark a spec approved (keep behind an ask rule)")
     approve.add_argument("spec")
     approve.add_argument("--via", default="terminal")
+    approve.add_argument("--start", action="store_true", help="start the run right after")
+    approve.add_argument("--no-branch-check", action="store_true")
     agent = sub.add_parser("agent", help="count a subagent run")
     agent.add_argument("role", choices=("planner", "implementer", "reviewer", "clerk"))
     agent.add_argument("--fresh", action="store_true")
@@ -113,6 +115,9 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         return 0
     if command == "approve":
         print(f"spec {args.spec}: {run_state.approve(cfg, args.spec, args.via)}")
+        if args.start:  # one permission prompt for "approve and go", e.g. from a phone
+            state = run_state.start(cfg, args.spec, not args.no_branch_check)
+            print(json.dumps({k: state[k] for k in ("spec", "active", "halted", "agent_runs")}))
         return 0
     if command == "status":
         if args.json:

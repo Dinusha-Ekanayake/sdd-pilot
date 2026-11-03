@@ -21,9 +21,12 @@ ALLOW = [
 ]
 # Human gates. "ask" beats "allow", so these always prompt, and a channel plugin
 # with permission relay (for example Telegram) can show the prompt on a phone.
+# Everything that approves, trusts, or resets a cap is here; halting and stopping are not.
 ASK = [
     f"Bash({SDD} approve:*)",
     f"Bash({SDD} trust:*)",
+    f"Bash({SDD} start:*)",  # a restart would reset the caps
+    f"Bash({SDD} resume:*)",  # clears a halt and the per-task counters
     "Bash(git commit:*)",
     "Bash(git push:*)",
     "Bash(gh pr create:*)",

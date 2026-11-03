@@ -57,7 +57,8 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
    tasks waiting for sign-off (`[?]`), the final review findings and the PR draft path
    (`.sdd/pr-<NNN>.md`). Stop and wait for "ship <NNN>". Then `SDD stop`.
 4. **Halted.** Show and send the reason and exactly what you need. Stop and wait. After
-   the answer: `SDD resume` and continue the loop.
+   the answer: `SDD resume` (it asks the user for permission, because it resets the
+   counters) and continue the loop. Never resume on your own initiative.
 
 ## `human` tasks
 Do the preparation (run the script, produce the outputs, draft the document), but leave
@@ -73,7 +74,7 @@ Recognised commands (case-insensitive):
 | Message | Action |
 |---|---|
 | `status` | Reply with `SDD status`. |
-| `approve <NNN>` | `SDD approve <NNN> --via telegram`, then start the run for `<NNN>`. |
+| `approve <NNN>` | `SDD approve <NNN> --via telegram --start` (one permission prompt), then run the loop. |
 | `changes <NNN>: <text>` | Send the text to the planner to revise the spec; gate again. |
 | `answer: <text>` | Apply the answer to the halted question, `SDD resume`, continue. |
 | `resume` | `SDD resume` and continue. |
@@ -83,7 +84,8 @@ Recognised commands (case-insensitive):
 Rules:
 - Phone messages are the user's words, but **gates move only on the commands above**.
   "looks fine" is not an approval; ask "Reply `approve 003` to approve."
-- `approve`, `git commit`, `git push` and `gh pr create` are behind `ask` permission rules.
+- `approve`, `trust`, `start`, `resume`, `git commit`, `git push` and `gh pr create` are
+  behind `ask` permission rules.
   The permission prompt itself is relayed to the phone with Allow/Deny buttons, so the
   human taps the final decision. Never try to get around a denied prompt.
 - Never send secrets, `.env` files, tokens or credentials to the chat. Send summaries and

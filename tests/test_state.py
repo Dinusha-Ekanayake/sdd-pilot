@@ -140,6 +140,20 @@ def test_approval_follows_spec_edits(repo: Path, cfg: config.Config) -> None:
     assert run_state.next_step(cfg)["status"] == "run"
 
 
+def test_start_refuses_while_a_run_is_active(cfg: config.Config) -> None:
+    _start(cfg)
+    run_state.record_failure(cfg, "T-009-02", "abc")
+    with pytest.raises(ValueError, match="already active; use `sdd resume`"):
+        _start(cfg)  # would otherwise wipe the failure counters
+    assert run_state.require(cfg.root)["tasks"]["T-009-02"]["fix_attempts"] == 1
+    run_state.stop(cfg.root)
+    assert _start_state(cfg)["tasks"] == {}  # an explicit (prompted) restart is fine
+
+
+def _start_state(cfg: config.Config) -> run_state.State:
+    return run_state.start(cfg, "009", check_branch=False)
+
+
 @pytest.mark.parametrize("spec", ["*", "../009", "9", "0091"])
 def test_spec_number_is_validated(cfg: config.Config, spec: str) -> None:
     with pytest.raises(ValueError, match="three-digit"):

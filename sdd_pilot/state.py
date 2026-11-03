@@ -102,6 +102,11 @@ def approval_problem(cfg: Config, spec: str, directory: Path) -> str | None:
 
 
 def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
+    """Start a fresh run. Refuses while a run is active, so counters are never wiped by accident."""
+    current = load(cfg.root)
+    if current is not None and current["active"]:
+        hint = "use `sdd resume`" if current["spec"] == spec else "run `sdd stop` first"
+        raise ValueError(f"a run for spec {current['spec']} is already active; {hint}")
     directory = cfg.spec_dir(spec)
     problem = approval_problem(cfg, spec, directory)
     if problem:

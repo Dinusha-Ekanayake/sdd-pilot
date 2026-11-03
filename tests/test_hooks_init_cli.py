@@ -222,6 +222,17 @@ def test_cli_approve(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     assert (repo / ".sdd" / "approvals.log").exists()
 
 
+def test_cli_approve_and_start_in_one_prompt(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    assert main(["approve", "009", "--start", "--no-branch-check"]) == 0
+    assert run_state.require(repo)["spec"] == "009"
+
+
+def test_everything_that_resets_or_approves_is_an_ask_rule() -> None:
+    gated = {rule.split()[-1].rstrip(":*)") for rule in ASK if ".sdd/bin/sdd" in rule}
+    assert gated == {"approve", "trust", "start", "resume"}
+
+
 def test_hooks_are_silent_outside_sdd_projects(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
