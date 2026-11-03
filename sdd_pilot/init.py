@@ -72,6 +72,21 @@ def _merge_settings(path: Path) -> list[str]:
     return added
 
 
+STATUSLINE = {"type": "command", "command": f"{SDD} statusline", "padding": 0}
+
+
+def enable_statusline(root: Path) -> str:
+    """Opt-in: show the run in this user's status line (``.claude/settings.local.json``)."""
+    path = root / ".claude" / "settings.local.json"
+    settings: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if "statusLine" in settings:
+        return f"kept the existing status line; add `{SDD} statusline` to it to show the run"
+    settings["statusLine"] = STATUSLINE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    return "status line enabled in .claude/settings.local.json"
+
+
 def _ensure_gitignore(root: Path) -> bool:
     path = root / ".gitignore"
     text = path.read_text(encoding="utf-8") if path.exists() else ""

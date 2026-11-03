@@ -10,6 +10,7 @@ from typing import Any
 
 from sdd_pilot import trust
 from sdd_pilot.config import Config
+from sdd_pilot.dashboard import write_dashboard
 from sdd_pilot.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
 from sdd_pilot.worktree import fingerprint
 
@@ -34,6 +35,7 @@ def save(root: Path, state: State) -> None:
     tmp = path.with_suffix(".tmp")  # write then rename, so a crash never leaves half a file
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp, path)
+    write_dashboard(root, state)  # the read-only HTML view stays current
 
 
 def require(root: Path) -> State:

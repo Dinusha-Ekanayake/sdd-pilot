@@ -12,6 +12,7 @@ from sdd_pilot import state as run_state
 from sdd_pilot import trust
 from sdd_pilot.brief import write_brief
 from sdd_pilot.check import format_report, run_all, signature
+from sdd_pilot.dashboard import status_line, write_dashboard
 from sdd_pilot.doctor import format_findings, run_doctor
 from sdd_pilot.hooks import (
     SDD,
@@ -21,9 +22,10 @@ from sdd_pilot.hooks import (
     stop_decision,
     write_shim,
 )
-from sdd_pilot.init import init_project
+from sdd_pilot.init import enable_statusline, init_project
 from sdd_pilot.presets import PRESETS
 from sdd_pilot.remote import telegram_status
+from sdd_pilot.tasks import parse_tasks
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = PLUGIN_ROOT / "bin" / "sdd"
@@ -47,6 +49,7 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--preset", choices=PRESETS, default="auto")
     init.add_argument("--specs-dir", default="specs")
     init.add_argument("--force", action="store_true")
+    init.add_argument("--statusline", action="store_true", help="show the run in the status line")
     check = sub.add_parser("check", help="run the quality gate")
     check.add_argument(
         "--task", help="record failures for this task (default: the group in flight)"
@@ -77,6 +80,8 @@ def _parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status")
     status.add_argument("--json", action="store_true")
     sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
+    sub.add_parser("statusline", help="one line for Claude Code's status line")
+    sub.add_parser("dashboard", help="write .sdd/dashboard.html and print its path")
     doctor = sub.add_parser("doctor", help="check the setup and say how to fix problems")
     doctor.add_argument("--json", action="store_true")
     for name in ("next", "resume", "stop", "remote", *HOOKS):
@@ -121,6 +126,25 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
         write_shim(cfg.root, LAUNCHER)
         context = {"hookEventName": "SessionStart", "additionalContext": session_context()}
         print(json.dumps({"hookSpecificOutput": context}))
+
+
+def _statusline() -> int:
+    """Never fails and prints nothing outside a run, so it is safe in any status line."""
+    start = _start_dir()
+    if not sys.stdin.isatty():
+        try:
+            payload = json.load(sys.stdin)
+            start = Path(payload.get("workspace", {}).get("project_dir") or start)
+        except (ValueError, AttributeError, OSError):
+            pass
+    try:
+        root = cfg_mod.find_root(start)
+        state = run_state.load(root)
+        tasks = parse_tasks(run_state.tasks_path(root, state)) if state else []
+        print(status_line(state, tasks))
+    except Exception:  # noqa: BLE001 - a status line must never show a traceback
+        pass
+    return 0
 
 
 def _doctor(as_json: bool) -> int:
@@ -169,6 +193,11 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         else:
             print(run_state.summary(root))
         return 0
+    if command == "dashboard":
+        state = run_state.require(root)
+        path = write_dashboard(root, state)
+        print(path.as_posix() if path else "could not write the dashboard")
+        return 0 if path else 1
     if command == "trust":
         print(f"trusted {cfg_mod.CONFIG_FILE} ({trust.trust_config(root)[:12]})")
         trust.record_guard(root, cfg.guard)
@@ -198,12 +227,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.command in HOOKS:
         return _hook(args.command)
     try:
+        if args.command == "statusline":
+            return _statusline()
         if args.command == "doctor":
             return _doctor(args.json)
         if args.command == "init":
             root = _start_dir()
             for line in init_project(root, args.preset, args.specs_dir, args.force):
                 print(line)
+            if args.statusline:
+                print(enable_statusline(root))
             write_shim(root, LAUNCHER)
             print(f"ready: run `{SDD} status`")
             return 0

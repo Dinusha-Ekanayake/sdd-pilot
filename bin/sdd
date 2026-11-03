@@ -31,10 +31,11 @@ pick_python() {
 
 # Hooks fire in every project. Without an sdd.toml at or above the project directory they
 # have nothing to do, so leave before starting Python (saves ~100 ms per edit and session).
+CONFIG_DIR=""
 has_config() {
   local dir="${CLAUDE_PROJECT_DIR:-$PWD}"
   while :; do
-    [ -f "$dir/sdd.toml" ] && return 0
+    [ -f "$dir/sdd.toml" ] && CONFIG_DIR="$dir" && return 0
     local parent
     parent="$(dirname "$dir")"
     [ "$parent" = "$dir" ] && return 1
@@ -44,6 +45,8 @@ has_config() {
 
 case "${1:-}" in
   hook-*) has_config || exit 0 ;;
+  # The status line refreshes often; with no run there is nothing to show.
+  statusline) { has_config && [ -f "$CONFIG_DIR/.sdd/state.json" ]; } || exit 0 ;;
 esac
 
 PYTHON="$(pick_python)"
