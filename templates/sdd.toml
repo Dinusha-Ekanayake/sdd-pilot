@@ -36,6 +36,12 @@ restart_after_tasks = 4
 max_size = 3   # low-risk tasks per implementer run
 max_high = 2   # high-risk tasks per implementer run
 
+# A code knowledge graph (graphify) that agents query instead of reading files. sdd-pilot
+# installs the pinned version if missing and keeps graphify-out/ fresh in the background.
+[graphify]
+auto = true
+version = "0.9.100"
+
 [brief]
 helper_files = []  # e.g. ["tests/conftest.py"]: always shown to the implementer
 graphify = true    # add related graph nodes to briefs (sdd-pilot keeps the graph up to date)

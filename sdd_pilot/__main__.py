@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 from sdd_pilot import config as cfg_mod
+from sdd_pilot import graph, trust
 from sdd_pilot import state as run_state
-from sdd_pilot import trust
 from sdd_pilot.brief import write_brief
 from sdd_pilot.check import format_report, run_all, signature
 from sdd_pilot.dashboard import status_line, write_dashboard
@@ -29,6 +29,7 @@ from sdd_pilot.tasks import parse_tasks
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = PLUGIN_ROOT / "bin" / "sdd"
+ENTRY = PLUGIN_ROOT / "bin" / "sdd_entry.py"
 HOOKS = (
     "hook-stop",
     "hook-format",
@@ -80,6 +81,8 @@ def _parser() -> argparse.ArgumentParser:
     status = sub.add_parser("status")
     status.add_argument("--json", action="store_true")
     sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
+    graph_cmd = sub.add_parser("graph", help="code graph: show its status, or sync it now")
+    graph_cmd.add_argument("action", choices=("status", "sync"))
     sub.add_parser("statusline", help="one line for Claude Code's status line")
     sub.add_parser("dashboard", help="write .sdd/dashboard.html and print its path")
     doctor = sub.add_parser("doctor", help="check the setup and say how to fix problems")
@@ -124,8 +127,25 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
             print(json.dumps(guard))
     else:
         write_shim(cfg.root, LAUNCHER)
-        context = {"hookEventName": "SessionStart", "additionalContext": session_context()}
+        text = session_context()
+        if cfg.graphify_auto:
+            graph.start_background_sync(cfg.root, ENTRY)
+            text += graph.session_hint(cfg.root)
+        context = {"hookEventName": "SessionStart", "additionalContext": text}
         print(json.dumps({"hookSpecificOutput": context}))
+
+
+def _graph(cfg: cfg_mod.Config, action: str) -> int:
+    if action == "status":
+        found = graph.find_graphify()
+        print(json.dumps({"graphify": found, "graph": graph.graph_status(cfg.root)}))
+        return 0
+    try:
+        lines = graph.sync(cfg.root, cfg.graphify_version)
+    finally:
+        graph.release_lock(cfg.root)
+    print("\n".join(lines))
+    return 1 if any(line.startswith(("could not", "`graphify")) for line in lines) else 0
 
 
 def _statusline() -> int:
@@ -193,6 +213,8 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         else:
             print(run_state.summary(root))
         return 0
+    if command == "graph":
+        return _graph(cfg, args.action)
     if command == "dashboard":
         state = run_state.require(root)
         path = write_dashboard(root, state)
@@ -237,6 +259,9 @@ def main(argv: list[str] | None = None) -> int:
                 print(line)
             if args.statusline:
                 print(enable_statusline(root))
+            cfg = cfg_mod.load(root)
+            if cfg.graphify_auto and graph.start_background_sync(root, ENTRY):
+                print(f"building the code graph in the background ({graph.LOG_FILE.as_posix()})")
             write_shim(root, LAUNCHER)
             print(f"ready: run `{SDD} status`")
             return 0

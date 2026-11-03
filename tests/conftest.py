@@ -71,3 +71,19 @@ def tick(cfg: config.Config, task_id: str, human: bool = False) -> None:
     state["gate"] = {"group": [task_id], "passed": now, "reviewed": now}
     run_state.save(cfg.root, state)
     run_state.complete(cfg, task_id, human)
+
+
+@pytest.fixture(autouse=True)
+def no_background_graph(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    """Tests never install graphify or spawn a background build; they record the request."""
+    from sdd_pilot import graph
+
+    calls: list[Path] = []
+
+    def fake_start(root: Path, entry: Path) -> bool:
+        calls.append(root)
+        return True
+
+    monkeypatch.setattr(graph, "_real_start", graph.start_background_sync, raising=False)
+    monkeypatch.setattr(graph, "start_background_sync", fake_start)
+    return calls

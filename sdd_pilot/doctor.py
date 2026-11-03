@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from sdd_pilot import config as cfg_mod
-from sdd_pilot import trust
+from sdd_pilot import graph, trust
 from sdd_pilot.check import resolve_cmd
 from sdd_pilot.hooks import SHIM
 from sdd_pilot.init import ASK, DENY
@@ -121,6 +121,19 @@ def _install(root: Path) -> list[Finding]:
     return found
 
 
+def _graph(cfg: cfg_mod.Config) -> Finding:
+    if not cfg.graphify_auto:
+        return Finding(
+            WARN, "code graph is off ([graphify] auto = false)", "agents read more files"
+        )
+    if graph.find_graphify() is None:
+        return Finding(WARN, "graphify not installed yet", "`sdd graph sync` installs it")
+    status = graph.graph_status(cfg.root)
+    if status == "fresh":
+        return Finding(OK, "code graph is up to date")
+    return Finding(WARN, f"code graph is {status}", "`sdd graph sync` (also runs at session start)")
+
+
 def _remote() -> Finding:
     status = telegram_status()
     if status["ready"]:
@@ -138,6 +151,7 @@ def run_doctor(start: Path, extra: list[Finding] | None = None) -> list[Finding]
     found += _checks(cfg)
     found += _permissions(cfg.root)
     found += _install(cfg.root)
+    found.append(_graph(cfg))
     found += extra or []
     found.append(_remote())
     return found

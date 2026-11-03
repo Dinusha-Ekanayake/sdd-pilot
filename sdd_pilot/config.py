@@ -13,6 +13,7 @@ from typing import Any
 
 CONFIG_FILE = "sdd.toml"
 RISKS = ("low", "high", "human")
+GRAPHIFY_VERSION = "0.9.100"  # pinned; see sdd_pilot/graph.py
 SPEC_NUMBER = re.compile(r"\d{3}")
 # Files that configure the gate itself. Changing one during a run fails `sdd check` until
 # the user looks at it and runs `sdd trust`, so an agent cannot quietly weaken the gate.
@@ -92,6 +93,8 @@ class Config:
     path_roots: tuple[str, ...] = ()  # empty: the project's top-level folders
     graphify: bool = True
     guard: tuple[str, ...] = GUARD_FILES
+    graphify_auto: bool = True  # keep a code graph built and fresh, in the background
+    graphify_version: str = GRAPHIFY_VERSION
 
     def spec_dir(self, spec: str) -> Path:
         if not SPEC_NUMBER.fullmatch(spec):
@@ -161,6 +164,7 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         _regex(pattern, "[wording] banned")
     groups = raw.get("groups", {})
     brief = raw.get("brief", {})
+    graph = raw.get("graphify", {})
     return Config(
         root=root,
         specs_dir=str(project.get("specs_dir", "specs")),
@@ -187,6 +191,8 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         path_roots=_tuple(brief.get("path_roots", ())),
         graphify=bool(brief.get("graphify", True)),
         guard=_tuple(project.get("guard", GUARD_FILES)),
+        graphify_auto=bool(graph.get("auto", True)),
+        graphify_version=str(graph.get("version", GRAPHIFY_VERSION)),
     )
 
 
