@@ -94,6 +94,18 @@ def approved_hash(root: Path, spec: str) -> str | None:
     return str(value) if value else None
 
 
+def record_ticks(root: Path, spec: str, statuses: dict[str, str]) -> None:
+    """The task statuses only ``sdd start`` and ``sdd done`` may set."""
+    data = _load()
+    _project(data, root).setdefault("ticks", {})[spec] = statuses
+    _save(data)
+
+
+def recorded_ticks(root: Path, spec: str) -> dict[str, str] | None:
+    value = _read(root).get("ticks", {}).get(spec)
+    return {str(k): str(v) for k, v in value.items()} if isinstance(value, dict) else None
+
+
 def record_guard(root: Path, files: tuple[str, ...]) -> None:
     """Remember the gate config files as they are now (missing files included)."""
     data = _load()

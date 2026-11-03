@@ -1,5 +1,6 @@
 """Run state in ``.sdd/state.json``: progress, caps, halts and the approval log."""
 
+import hashlib
 import json
 import os
 import re
@@ -79,7 +80,7 @@ def approve(cfg: Config, spec: str, via: str) -> str:
     stamp = f"{cfg.approved_word} ({date.today().isoformat()})"
     new_text = re.sub(cfg.status_regex, lambda m: f"{m.group(1)}{stamp}", text, count=1)
     path.write_text(new_text, encoding="utf-8")
-    digest = trust.file_hash(path) or ""
+    digest = approval_digest(path.parent)
     trust.record_approval(cfg.root, spec, digest)
     entry = {
         "time": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -94,6 +95,43 @@ def approve(cfg: Config, spec: str, via: str) -> str:
     return stamp
 
 
+def approval_digest(directory: Path) -> str:
+    """What the user approves: spec.md, plan.md and the task definitions.
+
+    Task statuses are left out, so ticking does not void the approval; ticks are checked
+    separately (see ``tick_problem``).
+    """
+    digest = hashlib.sha256()
+    for name in ("spec.md", "plan.md"):
+        path = directory / name
+        digest.update(name.encode() + b"\0" + (path.read_bytes() if path.is_file() else b""))
+    try:
+        rows = parse_tasks(directory / "tasks.md")
+    except (OSError, ValueError):
+        rows = []
+    for task in rows:
+        digest.update("\0".join(("task", task.id, task.text, task.test, task.risk)).encode())
+    return digest.hexdigest()
+
+
+def tick_problem(cfg: Config, state: State) -> str | None:
+    """Task statuses that changed outside ``sdd done`` (a hand-ticked or deleted row)."""
+    recorded = trust.recorded_ticks(cfg.root, state["spec"])
+    if recorded is None:
+        return "no recorded task statuses for this run; start it with `sdd start`"
+    actual = {t.id: t.status for t in parse_tasks(tasks_path(cfg.root, state))}
+    changed = sorted(i for i in recorded.keys() | actual.keys() if recorded.get(i) != actual.get(i))
+    if changed:
+        return f"tasks.md changed outside `sdd done` ({', '.join(changed)}); restore it"
+    return None
+
+
+def integrity_problem(cfg: Config, state: State) -> str | None:
+    """Approval and ticks, checked before anything trusts the spec or the task table."""
+    directory = cfg.root / state["spec_dir"]
+    return approval_problem(cfg, state["spec"], directory) or tick_problem(cfg, state)
+
+
 def approval_problem(cfg: Config, spec: str, directory: Path) -> str | None:
     """Why the spec does not count as approved right now, or None when it does."""
     spec_file = directory / "spec.md"
@@ -103,8 +141,11 @@ def approval_problem(cfg: Config, spec: str, directory: Path) -> str | None:
     recorded = trust.approved_hash(cfg.root, spec)
     if recorded is None:
         return f"{name} says approved but has no recorded approval; run `sdd approve {spec}`"
-    if recorded != trust.file_hash(spec_file):
-        return f"{name} changed after it was approved; the user must approve it again"
+    if recorded != approval_digest(directory):
+        return (
+            f"{directory.name} (spec, plan or task table) changed after it was approved; "
+            "the user must approve it again"
+        )
     return None
 
 
@@ -121,7 +162,8 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
     prefix = cfg.branch_prefix.format(spec=spec)
     if check_branch and prefix and not current_branch(cfg.root).startswith(prefix):
         raise ValueError(f"switch to a {prefix}* branch before starting the run")
-    parse_tasks(directory / "tasks.md")  # fail early on a malformed table
+    tasks = parse_tasks(directory / "tasks.md")  # fail early on a malformed table
+    trust.record_ticks(cfg.root, spec, {t.id: t.status for t in tasks})
     trust.record_guard(cfg.root, cfg.guard)  # baseline for the gate config check
     if cfg.graphify_auto:
         ensure_ignores(cfg.root)  # so a background graph sync cannot change the tree mid-run
@@ -173,7 +215,7 @@ def next_step(cfg: Config) -> dict[str, Any]:
     state = require(cfg.root)
     if state["halted"]:
         return {"status": "halted", "reason": state["halted"]}
-    problem = approval_problem(cfg, state["spec"], cfg.root / state["spec_dir"])
+    problem = integrity_problem(cfg, state)
     if problem:
         halt(cfg.root, state, problem)
         return {"status": "halted", "reason": problem}
@@ -301,11 +343,18 @@ def complete(cfg: Config, task_id: str, human: bool = False) -> State:
     """Tick a task, but only after a passing gate and a clean review of the current tree."""
     state = require(cfg.root)
     path = tasks_path(cfg.root, state)
+    problem = integrity_problem(cfg, state)
+    if problem:
+        halt(cfg.root, state, problem)
+        raise ValueError(problem)
     risk = {t.id: t.risk for t in parse_tasks(path)}.get(task_id, "high")
     problem = done_problem(cfg, state, task_id, risk)
     if problem:
         raise ValueError(problem)
-    set_status(path, task_id, HUMAN if human or risk == "human" else DONE)
+    status = HUMAN if human or risk == "human" else DONE
+    set_status(path, task_id, status)
+    ticks = trust.recorded_ticks(cfg.root, state["spec"]) or {}
+    trust.record_ticks(cfg.root, state["spec"], {**ticks, task_id: status})
     state["implementer_tasks"] += 1
     save(cfg.root, state)
     return state

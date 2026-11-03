@@ -130,7 +130,7 @@ def test_approval_follows_spec_edits(repo: Path, cfg: config.Config) -> None:
     spec = repo / "specs" / "009-demo" / "spec.md"
     run_state.approve(cfg, "009", via="terminal")
     entry = json.loads((repo / ".sdd" / "approvals.log").read_text().splitlines()[-1])
-    assert entry["sha256"] == trust.file_hash(spec)
+    assert entry["sha256"] == run_state.approval_digest(spec.parent)
     _start(cfg)
     spec.write_text(spec.read_text() + "- REQ-009-02: slipped in after approval.\n")
     step = run_state.next_step(cfg)

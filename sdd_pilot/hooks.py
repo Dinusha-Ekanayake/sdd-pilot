@@ -32,6 +32,10 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
     state = run_state.load(cfg.root)
     if state is None or not state["active"] or state["halted"]:
         return None
+    problem = run_state.integrity_problem(cfg, state)
+    if problem:  # never ask Claude to continue on a table it may have edited itself
+        run_state.halt(cfg.root, state, problem)
+        return None
     tasks = parse_tasks(run_state.tasks_path(cfg.root, state))
     open_count = sum(t.pending for t in tasks)
     if open_count == 0:

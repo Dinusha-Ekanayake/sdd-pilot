@@ -327,9 +327,9 @@ def test_hook_errors_never_break_the_session(
 ) -> None:
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["start", "009", "--no-branch-check"]) == 0
-    tasks_file(repo).write_text("not a task table\n")  # makes the Stop hook raise inside
+    (repo / ".sdd" / "state.json").write_text("{}")  # corrupt state makes the hook raise inside
     assert main(["hook-stop"]) == 0
-    assert "sdd-pilot hook-stop: ValueError" in capsys.readouterr().err
+    assert "sdd-pilot hook-stop: KeyError" in capsys.readouterr().err
 
 
 def test_format_hook_ignores_files_outside_the_project(
