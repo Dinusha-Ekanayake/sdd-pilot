@@ -271,12 +271,27 @@ def observe_agent(cfg: Config) -> State | None:
     return _cap_agents(cfg, state)
 
 
-def record_pass(cfg: Config) -> State | None:
-    """Remember the tree a passing gate saw (only during a run, for the group in flight)."""
+def run_tree(cfg: Config) -> str | None:
+    """The fingerprint the gate starts from, or None outside a run."""
+    state = load(cfg.root)
+    if state is None or not state["active"]:
+        return None
+    return tree(cfg.root, state)
+
+
+def record_pass(cfg: Config, before: str | None = None) -> State | None:
+    """Remember the tree a passing gate saw (only during a run, for the group in flight).
+
+    With ``before`` (the fingerprint taken as the gate started), a tree that changed while
+    the gate ran is not recorded: the pass would not describe the code as it is now.
+    """
     state = load(cfg.root)
     if state is None or not state["active"] or not _gate(state)["group"]:
         return None
-    _gate(state)["passed"] = tree(cfg.root, state)
+    now = tree(cfg.root, state)
+    if before is not None and before != now:
+        raise ValueError("files changed while the gate ran; run `sdd check` again")
+    _gate(state)["passed"] = now
     save(cfg.root, state)
     return state
 

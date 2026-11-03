@@ -99,6 +99,14 @@ def _permissions(root: Path) -> list[Finding]:
         found.append(Finding(WARN, f"these run without asking: {git}", "fine if you chose it"))
     if any(rule not in rules["deny"] for rule in DENY):
         found.append(Finding(WARN, "deny rules for .sdd/ are missing", "run `sdd init` again"))
+    if not any((s.get("sandbox") or {}).get("enabled") for s in settings):
+        found.append(
+            Finding(
+                WARN,
+                "sandbox is off: `sdd check` runs agent-written tests as you",
+                'enable Claude Code sandboxing ("sandbox": {"enabled": true})',
+            )
+        )
     modes = {s.get("permissions", {}).get("defaultMode") for s in settings}
     if "bypassPermissions" in modes:
         found.append(

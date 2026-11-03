@@ -87,3 +87,12 @@ def test_format_and_cli(
     capsys.readouterr()
     assert main(["doctor", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)[0]["level"] == OK
+
+
+def test_doctor_recommends_the_sandbox(tmp_path: Path) -> None:
+    init_project(tmp_path, "generic")
+    assert any("sandbox is off" in f.what and f.level == WARN for f in run_doctor(tmp_path))
+    settings = tmp_path / ".claude" / "settings.json"
+    data = json.loads(settings.read_text())
+    settings.write_text(json.dumps({**data, "sandbox": {"enabled": True}}))
+    assert not any("sandbox" in f.what for f in run_doctor(tmp_path))

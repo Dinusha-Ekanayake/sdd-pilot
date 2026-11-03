@@ -181,10 +181,11 @@ def _doctor(as_json: bool) -> int:
 
 
 def _check(cfg: cfg_mod.Config, task: str | None) -> int:
+    before = run_state.run_tree(cfg)  # the gate runs project code; see record_pass
     results = run_all(cfg)
     print(format_report(results))
     if all(r.ok for r in results):
-        run_state.record_pass(cfg)
+        run_state.record_pass(cfg, before)
         return 0
     task = task or run_state.current_task(cfg)
     if task:

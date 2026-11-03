@@ -69,3 +69,15 @@ def test_ticks_through_done_are_accepted(repo: Path, cfg: config.Config) -> None
     _start(cfg)
     tick(cfg, "T-009-02")
     assert run_state.next_step(cfg)["status"] == "run"
+
+
+def test_tree_changing_while_the_gate_runs_is_not_a_pass(repo: Path, cfg: config.Config) -> None:
+    _start(cfg)
+    first, _ = run_state.next_step(cfg)["tasks"]
+    before = run_state.run_tree(cfg)
+    (repo / "swapped_in_after_the_tests.py").write_text("x = 1\n")
+    with pytest.raises(ValueError, match="changed while the gate ran"):
+        run_state.record_pass(cfg, before)
+    run_state.record_pass(cfg, run_state.run_tree(cfg))
+    run_state.record_review(cfg, first, "clean")
+    run_state.complete(cfg, first)
