@@ -81,3 +81,13 @@ def test_tree_changing_while_the_gate_runs_is_not_a_pass(repo: Path, cfg: config
     run_state.record_pass(cfg, run_state.run_tree(cfg))
     run_state.record_review(cfg, first, "clean")
     run_state.complete(cfg, first)
+
+
+def test_init_force_never_trusts_the_replacement(repo: Path) -> None:
+    from sdd_pilot import trust
+    from sdd_pilot.init import init_project
+
+    write_config(repo, '[wording]\nbanned = ["guaranteed"]\n')  # a tuned, trusted config
+    lines = init_project(repo, "generic", force=True)
+    assert any("NOT trusted" in line for line in lines)
+    assert not trust.config_trusted(repo)

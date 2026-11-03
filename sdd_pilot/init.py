@@ -108,11 +108,18 @@ def init_project(
         if not trust.config_trusted(root):
             done.append(f"review {CONFIG_FILE}, then run `{SDD} trust` before the first check")
     else:
+        replacing = config.exists()
         stack = detect_stack(root) if preset == "auto" else preset
         config.write_text(render_config(root, stack, specs_dir), encoding="utf-8")
-        trust.trust_config(root)  # the user asked for this file, so it starts trusted
         steps = ", ".join(step.name for step in preset_for(root, stack).checks) or "none found"
-        done.append(f"wrote {CONFIG_FILE} ({stack} project; checks: {steps}; trusted)")
+        if replacing:
+            # `init --force` is allow-listed, so replacing a tuned config must not also
+            # trust the (weaker) default: the user reviews it and runs `sdd trust`.
+            done.append(f"replaced {CONFIG_FILE} ({stack} project; checks: {steps}; NOT trusted)")
+            done.append(f"review {CONFIG_FILE}, then run `{SDD} trust` before the first check")
+        else:
+            trust.trust_config(root)  # a new file the user asked for starts trusted
+            done.append(f"wrote {CONFIG_FILE} ({stack} project; checks: {steps}; trusted)")
     template_dir = root / specs_dir / "_template"
     template_dir.mkdir(parents=True, exist_ok=True)
     for name in ("spec.md", "plan.md", "tasks.md"):
