@@ -96,3 +96,11 @@ def test_doctor_recommends_the_sandbox(tmp_path: Path) -> None:
     data = json.loads(settings.read_text())
     settings.write_text(json.dumps({**data, "sandbox": {"enabled": True}}))
     assert not any("sandbox" in f.what for f in run_doctor(tmp_path))
+
+
+def test_doctor_flags_env_overrides_in_settings(tmp_path: Path) -> None:
+    init_project(tmp_path, "generic")
+    settings = tmp_path / ".claude" / "settings.json"
+    data = json.loads(settings.read_text())
+    settings.write_text(json.dumps({**data, "env": {"SDD_HOME": "/tmp/x"}}))
+    assert any("SDD_HOME is set" in f.what for f in run_doctor(tmp_path))

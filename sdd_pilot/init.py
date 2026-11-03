@@ -38,6 +38,8 @@ ASK = [
 DENY = [
     "Edit(.sdd/**)",
     "Edit(~/.claude/sdd-pilot/**)",
+    "Edit(.claude/settings.json)",
+    "Edit(.claude/settings.local.json)",
 ]
 
 

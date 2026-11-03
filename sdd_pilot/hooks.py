@@ -1,5 +1,6 @@
 """Claude Code hooks. All of them do nothing in a project without ``sdd.toml``."""
 
+import os
 import shlex
 import subprocess
 from pathlib import Path
@@ -51,9 +52,11 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
 
 
 GUARD_REASON = (
-    "sdd-pilot: {path} is run state or the trust store. It is written only by the sdd CLI, "
-    "so gates and caps cannot be edited around. Use `{sdd} <command>` instead."
+    "sdd-pilot: {path} holds run state, the trust store or the permission rules that make "
+    "the gates. It is not edited with file tools, so gates and caps cannot be edited around. "
+    "Use `{sdd} <command>`; the user can change Claude settings with /config or by hand."
 )
+CLAUDE_SETTINGS = (Path(".claude") / "settings.json", Path(".claude") / "settings.local.json")
 
 
 def _edited_path(payload: dict[str, Any]) -> str:
@@ -68,8 +71,24 @@ def _inside(path: Path, directory: Path) -> bool:
         return False
 
 
+def _same(a: Path, b: Path) -> bool:
+    """Same file or folder by identity, so UNC, 8.3 or other aliases of a path match too."""
+    try:
+        return a.exists() and b.exists() and os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
+def _protected(path: Path, directories: tuple[Path, ...], files: tuple[Path, ...]) -> bool:
+    if any(_inside(path, d) for d in directories) or path in {f.resolve() for f in files}:
+        return True
+    if any(_same(path, f) for f in files):
+        return True
+    return any(_same(parent, d) for parent in (path, *path.parents) for d in directories)
+
+
 def guard_decision(cfg: Config, payload: dict[str, Any]) -> dict[str, Any] | None:
-    """Deny file-tool edits to ``.sdd/`` and to the trust store (PreToolUse)."""
+    """Deny file-tool edits to ``.sdd/``, the trust store and Claude settings (PreToolUse)."""
     raw = _edited_path(payload)
     if not raw:
         return None
@@ -77,8 +96,9 @@ def guard_decision(cfg: Config, payload: dict[str, Any]) -> dict[str, Any] | Non
     if not path.is_absolute():
         path = Path(str(payload.get("cwd") or cfg.root)) / path
     path = path.resolve()
-    protected = (cfg.root / SHIM.parent.parent, trust.store_path().parent)
-    if not any(_inside(path, directory) for directory in protected):
+    directories = (cfg.root / SHIM.parent.parent, trust.store_path().parent)
+    files = tuple(cfg.root / rel for rel in CLAUDE_SETTINGS)
+    if not _protected(path, directories, files):
         return None
     return {
         "hookSpecificOutput": {

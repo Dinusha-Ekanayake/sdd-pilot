@@ -91,3 +91,42 @@ def test_init_force_never_trusts_the_replacement(repo: Path) -> None:
     lines = init_project(repo, "generic", force=True)
     assert any("NOT trusted" in line for line in lines)
     assert not trust.config_trusted(repo)
+
+
+@pytest.mark.parametrize("target", [".claude/settings.json", ".claude/settings.local.json"])
+def test_guard_denies_edits_to_claude_settings(repo: Path, cfg: config.Config, target: str) -> None:
+    from sdd_pilot.hooks import guard_decision
+
+    (repo / ".claude").mkdir(exist_ok=True)
+    (repo / target).write_text("{}")
+    for path in (target, str(repo / target), target.upper()):
+        decision = guard_decision(cfg, {"tool_input": {"file_path": path}, "cwd": str(repo)})
+        if path == target.upper() and not (repo / path).exists():
+            continue  # case-sensitive file system: a different file
+        assert decision is not None, path
+
+
+def test_guard_matches_aliases_by_identity(repo: Path, cfg: config.Config) -> None:
+    from sdd_pilot.hooks import guard_decision
+
+    state = repo / ".sdd" / "state.json"
+    state.parent.mkdir(parents=True, exist_ok=True)
+    state.write_text("{}")
+    alias = repo / "alias"
+    try:
+        alias.symlink_to(repo / ".sdd", target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks not permitted here")
+    payload = {"tool_input": {"file_path": str(alias / "state.json")}}
+    assert guard_decision(cfg, payload) is not None
+
+
+def test_sdd_home_inside_the_project_is_refused(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from sdd_pilot import trust
+
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    monkeypatch.setenv("SDD_HOME", str(repo / "fake-store"))
+    with pytest.raises(ValueError, match="must be outside the project"):
+        trust.store_path()

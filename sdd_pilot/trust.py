@@ -21,8 +21,15 @@ STORE_NAME = "trust.json"
 
 
 def store_path() -> Path:
+    """The store, outside any project: a ``$SDD_HOME`` inside the project is refused,
+    since agents can write there."""
     home = os.environ.get("SDD_HOME")
-    base = Path(home) if home else Path.home() / ".claude" / "sdd-pilot"
+    if not home:
+        return Path.home() / ".claude" / "sdd-pilot" / STORE_NAME
+    base = Path(home).resolve()
+    for project in (os.environ.get("CLAUDE_PROJECT_DIR"), os.getcwd()):
+        if project and base.is_relative_to(Path(project).resolve()):
+            raise ValueError(f"SDD_HOME ({home}) must be outside the project ({project})")
     return base / STORE_NAME
 
 

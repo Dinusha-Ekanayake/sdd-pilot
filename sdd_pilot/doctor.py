@@ -107,6 +107,11 @@ def _permissions(root: Path) -> list[Finding]:
                 'enable Claude Code sandboxing ("sandbox": {"enabled": true})',
             )
         )
+    for var in ("SDD_HOME", "SDD_PYTHON"):
+        if any(var in (s.get("env") or {}) for s in settings):
+            found.append(
+                Finding(WARN, f"{var} is set in Claude settings", "make sure you set it yourself")
+            )
     modes = {s.get("permissions", {}).get("defaultMode") for s in settings}
     if "bypassPermissions" in modes:
         found.append(
