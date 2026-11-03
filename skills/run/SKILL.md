@@ -21,8 +21,11 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
 
 ## `plan <topic>`: draft a new spec
 1. Run the planner with the topic. (No run is active yet, so nothing is counted.)
-2. Gate **spec approval**: show the summary and open questions, and send them plus the
-   `spec.md` file to the phone. Stop and wait. The user approves with "approve <NNN>",
+2. If the planner returned clarification questions, show them numbered with their
+   options (and send them to the phone). Wait for `answer <NNN>: 1a, 2 <text>, ...`,
+   send the answers to the planner, and repeat until there are none.
+3. Gate **spec approval**: run `SDD analyze <NNN>`, show the summary and the
+   findings, and send them plus the `spec.md` file to the phone. Stop and wait. The user approves with "approve <NNN>",
    asks for changes with "changes <NNN>: ...", or edits the file themselves.
 
 ## `<NNN>`: implement an approved spec
@@ -81,6 +84,7 @@ Recognised commands (case-insensitive):
 | `status` | Reply with `SDD status`. |
 | `approve <NNN>` | `SDD approve <NNN> --via telegram --start` (one permission prompt), then run the loop. |
 | `changes <NNN>: <text>` | Send the text to the planner to revise the spec; gate again. |
+| `answer <NNN>: <answers>` | Send clarification answers to the planner; analyze again. |
 | `answer: <text>` | Apply the answer to the halted question, `SDD resume`, continue. |
 | `resume` | `SDD resume` and continue. |
 | `ship <NNN>` | Commit, push and open the PR as the project's rules say. |

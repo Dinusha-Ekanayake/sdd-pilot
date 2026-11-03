@@ -16,6 +16,8 @@ GRAPHIFY_BUDGET = 400
 MAX_PLAN_LINES = 40
 MAX_API_FILES = 12
 MAX_SIGNATURES = 25
+MAX_RULES = 15
+RULE_WORDS = re.compile(r"\b(MUST|MUST NOT|NEVER)\b")
 COMMON_ROOTS = ("src", "lib", "app", "tests", "scripts", "configs", "docs")
 _NOT_SOURCE = {"node_modules", "venv", "dist", "build", "target", "graphify-out", "specs"}
 _BACKTICKED = re.compile(r"`([^`]+)`")
@@ -161,6 +163,14 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
     spec_lines = (spec_dir / "spec.md").read_text(encoding="utf-8").splitlines()
     requirements = [line for line in spec_lines if _REQ_OR_AC.match(line)]
 
+    constitution = spec_dir.parent / "constitution.md"
+    rules = [
+        line.strip()
+        for line in (
+            constitution.read_text(encoding="utf-8") if constitution.is_file() else ""
+        ).splitlines()
+        if RULE_WORDS.search(line) and line.strip().startswith(("-", "*"))
+    ]
     risk = chosen[0].risk
     rows = "\n".join(f"| {t.id} | {t.text} | {t.test} | {t.risk} |" for t in chosen)
     parts = [
@@ -169,6 +179,14 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
         "## Tasks\n| ID | Task | Test | Risk |\n|---|---|---|---|\n" + rows,
         "## Plan lines\n" + ("\n".join(plan_lines) or "(none matched)"),
         "## Requirements and acceptance criteria\n" + ("\n".join(requirements) or "(none)"),
+        *(
+            [
+                "## Project rules (constitution; a violation is CRITICAL)\n"
+                + "\n".join(_capped(rules, MAX_RULES, "rules"))
+            ]
+            if rules
+            else []
+        ),
         "## Existing APIs (signatures only)\n" + ("\n\n".join(_api_section(cfg, plan_lines))),
     ]
     if cfg.graphify:

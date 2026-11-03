@@ -127,6 +127,12 @@ def init_project(
         else:
             trust.trust_config(root)  # a new file the user asked for starts trusted
             done.append(f"wrote {CONFIG_FILE} ({stack} project; checks: {steps}; trusted)")
+    constitution = root / specs_dir / "constitution.md"
+    if not constitution.exists():
+        ensure_safe(root, constitution)
+        constitution.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(TEMPLATES / "constitution.md", constitution)
+        done.append(f"wrote {constitution.relative_to(root).as_posix()} (edit the examples)")
     template_dir = root / specs_dir / "_template"
     template_dir.mkdir(parents=True, exist_ok=True)
     for name in ("spec.md", "plan.md", "tasks.md"):

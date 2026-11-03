@@ -27,7 +27,9 @@ Long agent runs fail in predictable ways. sdd-pilot has a mitigation for each:
 | A cloned repo runs commands on your machine | `sdd.toml` commands run only after you trust that exact file |
 | Agent context grows until it drifts | The implementer is restarted every few tasks |
 | Green tests that prove nothing | The reviewer checks that tests would fail if the code were wrong |
-| Silent guesses on ambiguous specs | Choices are logged as assumptions; behaviour-changing ones halt the run and ask you |
+| Silent guesses on ambiguous specs | The planner marks up to five `[NEEDS CLARIFICATION]` questions for you to answer before approval; during the run, choices are logged as assumptions and behaviour-changing ones halt the run and ask you |
+| Specs that do not hang together | `sdd analyze` (no model) checks clarifications, placeholders, requirement coverage by tasks, vague wording and plan paths; `approve` refuses CRITICAL findings |
+| Project rules forgotten mid-run | `specs/constitution.md`: its MUST rules go into every brief, and the reviewer treats a violation as CRITICAL |
 | Overclaiming wording in regulated domains | Optional banned-phrase scan in the gate |
 | You are away from the laptop | Approvals and answers over Telegram |
 
@@ -106,7 +108,7 @@ Risk is `low`, `high` or `human`. Status is `[ ]` open, `[x]` done, `[?]` waitin
 ## CLI
 
 `bash .sdd/bin/sdd <command>` (the shim is created by `init` and refreshed at session start):
-`init`, `doctor`, `trust`, `check`, `brief`, `start`, `approve`, `next`, `agent`, `review`, `done`, `assume`, `halt`, `resume`, `stop`, `status`, `statusline`, `dashboard`, `graph`, `remote`. See [docs/how-it-works.md](docs/how-it-works.md).
+`init`, `doctor`, `trust`, `analyze`, `check`, `brief`, `start`, `approve`, `next`, `agent`, `review`, `done`, `assume`, `halt`, `resume`, `stop`, `status`, `statusline`, `dashboard`, `graph`, `remote`. See [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Security
 
@@ -129,3 +131,5 @@ bash .sdd/bin/sdd check
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed.
+
+The clarify step, the cross-artifact analysis and the constitution are inspired by GitHub's [Spec Kit](https://github.com/github/spec-kit).

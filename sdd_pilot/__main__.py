@@ -10,6 +10,8 @@ from pathlib import Path
 from sdd_pilot import config as cfg_mod
 from sdd_pilot import graph, trust
 from sdd_pilot import state as run_state
+from sdd_pilot.analyze import analyze
+from sdd_pilot.analyze import format_findings as format_analysis
 from sdd_pilot.brief import write_brief
 from sdd_pilot.check import format_report, run_all, signature
 from sdd_pilot.dashboard import status_line, write_dashboard
@@ -65,6 +67,9 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--via", default="terminal")
     approve.add_argument("--start", action="store_true", help="start the run right after")
     approve.add_argument("--no-branch-check", action="store_true")
+    approve.add_argument("--anyway", action="store_true", help="approve despite CRITICAL findings")
+    analyze_cmd = sub.add_parser("analyze", help="check a spec, plan and tasks before approval")
+    analyze_cmd.add_argument("spec")
     agent = sub.add_parser("agent", help="count a subagent run")
     agent.add_argument("role", choices=("planner", "implementer", "reviewer", "clerk"))
     agent.add_argument("--fresh", action="store_true")
@@ -206,7 +211,16 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         spec_dir = root / run_state.require(root)["spec_dir"]
         print(write_brief(cfg, spec_dir, args.tasks, SDD).relative_to(root).as_posix())
         return 0
+    if command == "analyze":
+        spec_dir = cfg.spec_dir(args.spec)
+        found = analyze(spec_dir)
+        print(format_analysis(spec_dir, found))
+        return 1 if any(f.level == "CRITICAL" for f in found) else 0
     if command == "approve":
+        found = analyze(cfg.spec_dir(args.spec))
+        if any(f.level == "CRITICAL" for f in found) and not args.anyway:
+            print(format_analysis(cfg.spec_dir(args.spec), found))
+            raise ValueError("resolve the CRITICAL findings first (or pass --anyway)")
         print(f"spec {args.spec}: {run_state.approve(cfg, args.spec, args.via)}")
         if args.start:  # one permission prompt for "approve and go", e.g. from a phone
             state = run_state.start(cfg, args.spec, not args.no_branch_check)

@@ -17,7 +17,8 @@ Check, in this order:
    trivially, only assert shapes, or re-implement the code under test.
 2. **Correctness** against the plan lines: boundaries (inclusive or half-open), empty
    inputs, ordering assumptions, error paths, type and encoding surprises.
-3. **Project invariants** named in the spec or brief (for example data leakage, security,
+3. **Project rules.** A violation of a rule under "Project rules" in the brief is
+   CRITICAL. Then **project invariants** named in the spec or brief (for example data leakage, security,
    money handling, backwards compatibility, safety wording).
 4. **Silent decisions** the implementer made that the spec does not cover.
 5. **Gate weakening.** New `skip`, `xfail`, `only`, `# noqa`, `# type: ignore`,
