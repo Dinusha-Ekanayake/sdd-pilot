@@ -128,7 +128,8 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
     else:
         write_shim(cfg.root, LAUNCHER)
         text = session_context()
-        if cfg.graphify_auto:
+        # Only for a trusted sdd.toml: it chooses the graphify version that gets installed.
+        if cfg.graphify_auto and trust.config_trusted(cfg.root):
             graph.ensure_ignores(cfg.root)  # now, not mid-run from the background sync
             graph.start_background_sync(cfg.root, ENTRY)
             text += graph.session_hint(cfg.root)
@@ -142,6 +143,8 @@ def _graph(cfg: cfg_mod.Config, action: str) -> int:
         print(json.dumps({"graphify": found, "graph": graph.graph_status(cfg.root)}))
         return 0
     try:
+        if not trust.config_trusted(cfg.root):
+            raise ValueError("sdd.toml is not trusted; review it, then run `sdd trust`")
         lines = graph.sync(cfg.root, cfg.graphify_version)
     finally:
         graph.release_lock(cfg.root)
@@ -261,7 +264,8 @@ def main(argv: list[str] | None = None) -> int:
             if args.statusline:
                 print(enable_statusline(root))
             cfg = cfg_mod.load(root)
-            if cfg.graphify_auto and graph.start_background_sync(root, ENTRY):
+            trusted = trust.config_trusted(root)
+            if cfg.graphify_auto and trusted and graph.start_background_sync(root, ENTRY):
                 print(f"building the code graph in the background ({graph.LOG_FILE.as_posix()})")
             write_shim(root, LAUNCHER)
             print(f"ready: run `{SDD} status`")

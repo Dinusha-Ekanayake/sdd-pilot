@@ -103,7 +103,7 @@ def test_install_order_prefers_isolated_tools(monkeypatch: pytest.MonkeyPatch) -
     )
     commands = graph.install_commands("1.0")
     assert [cmd[0] for cmd in commands[:2]] == ["uv", "pipx"]
-    assert commands[2][1:4] == ["-m", "pip", "install"]
+    assert commands[2][1:5] == ["-I", "-m", "pip", "install"]  # isolated mode
 
 
 def test_find_graphify_looks_in_the_user_bin(
@@ -194,3 +194,33 @@ def test_cli_init_starts_a_background_build(
     assert main(["init"]) == 0
     assert no_background_graph == [tmp_path]
     assert "building the code graph in the background" in capsys.readouterr().out
+
+
+def test_installers_run_outside_the_repository(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    home = tmp_path_factory.mktemp("home")
+    monkeypatch.setattr(graph.Path, "home", lambda: home)
+    monkeypatch.setattr(graph, "find_graphify", lambda: None)
+    seen: list[Path] = []
+
+    def record(cmd: list[str], cwd: Path, timeout: int) -> int:
+        seen.append(cwd)
+        return 1
+
+    graph.install("1.0", record)
+    assert seen and all(cwd == home for cwd in seen)
+
+
+def test_untrusted_config_never_syncs_or_installs(
+    repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    no_background_graph: list[Path],
+) -> None:
+    (repo / "sdd.toml").write_text('[graphify]\nversion = "6.6.6"\n')  # e.g. a fresh clone
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    assert main(["hook-session-start"]) == 0
+    assert no_background_graph == []
+    assert main(["graph", "sync"]) == 2
+    assert "not trusted" in capsys.readouterr().err

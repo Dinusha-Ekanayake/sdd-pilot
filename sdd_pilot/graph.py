@@ -64,9 +64,12 @@ Runner = Callable[[list[str], Path, int], int]
 
 
 def _run(cmd: list[str], cwd: Path, timeout: int) -> int:
+    # PYTHONSAFEPATH keeps a Python child from importing modules out of its working
+    # directory (a repository could ship its own `pip.py`).
+    env = {**os.environ, "PYTHONSAFEPATH": "1"}
     try:
         return subprocess.run(
-            cmd, cwd=cwd, capture_output=True, check=False, timeout=timeout
+            cmd, cwd=cwd, capture_output=True, check=False, timeout=timeout, env=env
         ).returncode
     except (OSError, subprocess.TimeoutExpired):
         return 1
@@ -91,14 +94,18 @@ def install_commands(version: str) -> list[list[str]]:
         commands.append(["uv", "tool", "install", spec])
     if shutil.which("pipx"):
         commands.append(["pipx", "install", spec])
-    commands.append([sys.executable, "-m", "pip", "install", "--user", "--quiet", spec])
+    # -I: isolated mode, so nothing from the working directory or PYTHON* variables is used.
+    commands.append([sys.executable, "-I", "-m", "pip", "install", "--user", "--quiet", spec])
     return commands
 
 
-def install(root: Path, version: str, run: Runner = _run) -> str | None:
-    """Install the pinned graphify with the first tool that works; return its path."""
+def install(version: str, run: Runner = _run) -> str | None:
+    """Install the pinned graphify with the first tool that works; return its path.
+
+    Installers run from the user's home directory, never from the repository.
+    """
     for cmd in install_commands(version):
-        if run(cmd, root, INSTALL_TIMEOUT) == 0 and (exe := find_graphify()):
+        if run(cmd, Path.home(), INSTALL_TIMEOUT) == 0 and (exe := find_graphify()):
             return exe
     return None
 
@@ -142,11 +149,12 @@ def ensure_ignores(root: Path) -> list[str]:
 
 
 def sync(root: Path, version: str = DEFAULT_VERSION, run: Runner = _run) -> list[str]:
-    """Install if needed, then build or refresh the graph. Safe to run any time."""
+    """Install if needed, then build or refresh the graph. Callers check trust first:
+    the version comes from sdd.toml, and graphify reads the repository."""
     done = ensure_ignores(root)
     exe = find_graphify()
     if exe is None:
-        exe = install(root, version, run)
+        exe = install(version, run)
         if exe is None:
             return [*done, f"could not install {PACKAGE}=={version} (tried uv, pipx, pip)"]
         done.append(f"installed {PACKAGE}=={version}")
