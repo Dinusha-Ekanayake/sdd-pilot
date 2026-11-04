@@ -7,6 +7,7 @@ import re
 import secrets
 import shutil
 import subprocess
+import time
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
@@ -361,21 +362,82 @@ def _cap_agents(cfg: Config, state: State) -> State:
     return state
 
 
+IN_FLIGHT_SECONDS = 2 * 60 * 60  # longer than any one subagent run should take
+OUR_AGENT_PREFIXES = ("specsteward:", "sdd-pilot:")
+
+
 def record_agent(cfg: Config, role: str, fresh: bool) -> State:
     state = require(cfg.root)
     state["agent_runs"] += 1
+    state["last_agent_at"] = time.time()
     if role == "implementer" and fresh:
         state["implementer_tasks"] = 0
     return _cap_agents(cfg, state)
 
 
-def observe_agent(cfg: Config) -> State | None:
-    """Count a finished subagent from the SubagentStop hook, so the cap is not honour-based."""
-    state = load(cfg.root)
-    if state is None or not state["active"] or state["halted"]:
+def ours(agent_type: object) -> bool:
+    """A subagent of this plugin. Unknown (older Claude Code sends no type) counts as ours."""
+    return not agent_type or str(agent_type).startswith(OUR_AGENT_PREFIXES)
+
+
+_OWNING_COMMAND = re.compile(
+    r"\.sdd/bin/sdd\s+(?:start|resume|claim)\b|\.sdd/bin/sdd\s+approve\b.*--start"
+)
+
+
+def owned_elsewhere(state: State, session_id: object) -> bool:
+    """The run belongs to another Claude Code session (unknown sessions are not excluded)."""
+    owner = state.get("owner_session")
+    return bool(owner and session_id and owner != session_id)
+
+
+def bind_owner(cfg: Config, payload: dict[str, Any]) -> State | None:
+    """PostToolUse on Bash: the session that starts, resumes or claims the run owns it.
+
+    Only the owner is told to continue, and only its subagents and tokens count, so a
+    second session open on the same project (a VS Code panel, a new terminal) cannot
+    drive the same run or skew its caps.
+    """
+    tool_input = payload.get("tool_input") or {}
+    command = str(tool_input.get("command", "")) if isinstance(tool_input, dict) else ""
+    session_id = payload.get("session_id")
+    if not session_id or not _OWNING_COMMAND.search(command):
         return None
+    state = load(cfg.root)
+    if state is None or not state["active"] or state.get("owner_session") == session_id:
+        return None
+    state["owner_session"] = str(session_id)
+    save(cfg.root, state)
+    return state
+
+
+def observe_agent(
+    cfg: Config, agent_type: object = None, session_id: object = None
+) -> State | None:
+    """Count a finished subagent from the SubagentStop hook, so the cap is not honour-based.
+
+    Other subagents in the same session (an Explore search, a code review the user asked
+    for) are not part of the run and are not counted.
+    """
+    state = load(cfg.root)
+    if state is None or not state["active"] or state["halted"] or not ours(agent_type):
+        return None
+    if owned_elsewhere(state, session_id):
+        return None  # another session's subagent is not part of this run
     state["observed_agent_runs"] = int(state.get("observed_agent_runs", 0)) + 1
     return _cap_agents(cfg, state)
+
+
+def agent_in_flight(state: State) -> bool:
+    """A subagent was launched (`sdd agent`) and has not finished yet (SubagentStop).
+
+    Expires after IN_FLIGHT_SECONDS, so a Claude Code without SubagentStop, or a lost
+    notification, cannot switch off the no-progress protection for good.
+    """
+    launched = int(state.get("agent_runs", 0))
+    finished = int(state.get("observed_agent_runs", 0))
+    started = float(state.get("last_agent_at") or 0)
+    return launched > finished and time.time() - started < IN_FLIGHT_SECONDS
 
 
 def run_tree(cfg: Config) -> str | None:
@@ -386,10 +448,12 @@ def run_tree(cfg: Config) -> str | None:
     return tree(cfg.root, state)
 
 
-def observe_usage(cfg: Config, transcript_path: object) -> State | None:
+def observe_usage(cfg: Config, transcript_path: object, session_id: object = None) -> State | None:
     """Add the run's new token usage from the transcripts; halt over ``max_tokens``."""
     state = load(cfg.root)
     if state is None or not state["active"] or state["halted"] or not transcript_path:
+        return None
+    if owned_elsewhere(state, session_id):
         return None
     since = datetime.fromisoformat(str(state.get("started_at") or datetime.now(UTC).isoformat()))
     state["usage"] = usage.collect(state.get("usage") or usage.empty(), str(transcript_path), since)
@@ -498,6 +562,11 @@ def complete(cfg: Config, task_id: str, human: bool = False) -> State:
     state["implementer_tasks"] += 1
     save(cfg.root, state)
     return state
+
+
+def claim(root: Path) -> State:
+    """Make the calling session the run's owner (recorded by the PostToolUse hook)."""
+    return require(root)
 
 
 def resume(root: Path) -> State:

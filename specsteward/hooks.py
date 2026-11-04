@@ -26,14 +26,19 @@ SESSION_CONTEXT = (
 )
 
 
-def stop_decision(cfg: Config) -> dict[str, str] | None:
-    """Block the stop while tasks remain, but only if a task was completed since the last block.
+def stop_decision(cfg: Config, session_id: object = None) -> dict[str, str] | None:
+    """Block the stop while tasks remain, but only if there was progress since the last block.
 
-    No progress since the last automatic continue halts the run, so it can never loop forever.
+    Progress is a ticked task or a finished subagent (its report needs handling). No progress
+    since the last automatic continue halts the run, so it can never loop forever. While a
+    subagent is still working, the session may stop and wait: its completion wakes it, and
+    that wait is neither blocked nor counted as a stop without progress.
     """
     state = run_state.load(cfg.root)
     if state is None or not state["active"] or state["halted"]:
         return None
+    if run_state.owned_elsewhere(state, session_id):
+        return None  # never drive a run from a session that does not own it
     problem = run_state.integrity_problem(cfg, state)
     if problem:  # never ask Claude to continue on a table it may have edited itself
         run_state.halt(cfg.root, state, problem)
@@ -42,11 +47,16 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
     open_count = sum(t.pending for t in tasks)
     if open_count == 0:
         return None
+    if run_state.agent_in_flight(state):
+        return None
     done = len(tasks) - open_count
-    if done <= state["last_block_done"]:
+    finished = int(state.get("observed_agent_runs", 0))
+    progressed = done > state["last_block_done"] or finished > state.get("last_block_agents", 0)
+    if not progressed:
         run_state.halt(cfg.root, state, "no task completed since the last automatic continue")
         return None
     state["last_block_done"] = done
+    state["last_block_agents"] = finished
     run_state.save(cfg.root, state)
     reason = CONTINUE_REASON.format(spec=state["spec"], open=open_count, sdd=SDD)
     return {"decision": "block", "reason": reason}
@@ -148,5 +158,15 @@ def write_shim(root: Path, launcher: Path) -> Path:
     return shim
 
 
-def session_context() -> str:
-    return SESSION_CONTEXT.format(sdd=SDD)
+OTHER_SESSION = (
+    " A specsteward run for spec {spec} belongs to another Claude Code session. Do not "
+    "continue it unless the user asks; to take it over here, run `{sdd} claim`."
+)
+
+
+def session_context(cfg: Config | None = None, session_id: object = None) -> str:
+    text = SESSION_CONTEXT.format(sdd=SDD)
+    state = run_state.load(cfg.root) if cfg is not None else None
+    if state and state["active"] and run_state.owned_elsewhere(state, session_id):
+        text += OTHER_SESSION.format(spec=state["spec"], sdd=SDD)
+    return text

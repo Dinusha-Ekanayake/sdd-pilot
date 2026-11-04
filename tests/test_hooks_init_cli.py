@@ -328,7 +328,7 @@ def test_hook_errors_never_break_the_session(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["start", "009", "--no-branch-check"]) == 0
 
-    def broken(cfg: config.Config) -> None:
+    def broken(cfg: config.Config, session_id: object = None) -> None:
         raise KeyError("boom")
 
     monkeypatch.setattr("specsteward.__main__.stop_decision", broken)
