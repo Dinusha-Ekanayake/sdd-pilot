@@ -43,6 +43,7 @@
 
 ### Fixed
 - Hooks never break the session, and the launcher skips Python in projects without `sdd.toml`.
+- Concurrent sessions no longer overwrite each other's trust-store records (locked writes).
 - Check steps have a timeout; state is written atomically; invalid regexes fail at load time.
 - `init --specs-dir` is written to the generated `sdd.toml`.
 - Task tables: `|` inside backticks, and a Status column that is not last.
