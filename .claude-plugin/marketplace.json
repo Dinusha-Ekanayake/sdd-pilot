@@ -1,13 +1,18 @@
 {
   "name": "specsteward",
   "description": "Spec-driven development on autopilot for Claude Code.",
-  "owner": { "name": "Dinusha Ekanayake" },
+  "owner": {
+    "name": "Dinusha Ekanayake"
+  },
   "plugins": [
     {
       "name": "specsteward",
       "source": "./",
-      "description": "Spec-driven development on autopilot for Claude Code, with phone approvals via Telegram.",
-      "category": "development"
+      "description": "Spec-driven development on autopilot for Claude Code, with tamper-proof human gates and phone approvals over Telegram or Discord.",
+      "category": "development",
+      "version": "0.2.0",
+      "homepage": "https://github.com/Dinusha-Ekanayake/specsteward",
+      "license": "MIT"
     }
   ]
 }

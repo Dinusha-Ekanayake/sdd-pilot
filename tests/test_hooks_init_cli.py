@@ -319,7 +319,7 @@ def test_launcher_and_shim_run_the_cli(repo: Path) -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip() == "No SDD run in this project."
+    assert proc.stdout.strip() == "No specsteward run in this project."
 
 
 def test_hook_errors_never_break_the_session(

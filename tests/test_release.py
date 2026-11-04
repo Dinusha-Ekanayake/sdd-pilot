@@ -112,3 +112,20 @@ def test_a_brief_windows_sharing_clash_is_retried(
     monkeypatch.setattr(trust.os, "replace", flaky)
     trust.record_approval(repo, "012", "abc")
     assert trust.approved_hash(repo, "012") == "abc" and not clashes
+
+
+def test_cli_version_matches_the_manifest(capsys: pytest.CaptureFixture[str]) -> None:
+    from specsteward.__main__ import main
+
+    plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    with pytest.raises(SystemExit) as exit_info:
+        main(["--version"])
+    assert exit_info.value.code == 0
+    assert capsys.readouterr().out.strip() == f"specsteward {plugin['version']}"
+
+
+def test_manifests_point_at_the_repository() -> None:
+    plugin = json.loads((ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
+    market = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+    assert plugin["repository"].endswith("/specsteward") and plugin["license"] == "MIT"
+    assert market["plugins"][0]["version"] == plugin["version"]

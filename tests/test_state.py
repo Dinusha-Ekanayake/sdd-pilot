@@ -167,7 +167,7 @@ def test_approve_requires_status_line(repo: Path, cfg: config.Config) -> None:
 
 
 def test_summary_for_phone(repo: Path, cfg: config.Config) -> None:
-    assert run_state.summary(repo) == "No SDD run in this project."
+    assert run_state.summary(repo) == "No specsteward run in this project."
     _start(cfg)
     run_state.record_assumption(repo, "T-009-02", "right-closed windows")
     tick(cfg, "T-009-06")

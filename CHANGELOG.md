@@ -39,6 +39,7 @@
 - Project constitution (`specs/constitution.md`): its MUST rules go into every brief; violations are CRITICAL in review.
 - Clarify step: the planner asks up to five `[NEEDS CLARIFICATION]` questions before approval; answer with `answer <NNN>: ...`, also from the phone.
 - `sdd approve <NNN> --start`: approve and start in one permission prompt.
+- `sdd --version`, help text for every command, plugin manifest homepage and repository, a supported-versions table in SECURITY.md, a privacy note, CodeQL code scanning, and least-privilege CI permissions.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
 - Phone control over Discord as well as Telegram, through Anthropic's official channel plugins: `sdd remote` reports the ready channel (and others set up), `sdd doctor` checks each, Bun is installed for either; `docs/telegram.md` is now `docs/phone.md`.
 - Parallel runs: `sdd worktree <NNN>` creates a sibling git worktree on the spec's branch (copying `sdd.toml` and the spec if they are not committed); trust and approvals are kept per repository, so worktrees share them, while each worktree has its own run. Several trusted `sdd.toml` versions can coexist.

@@ -143,6 +143,10 @@ Risk is `low`, `high` or `human`. Status is `[ ]` open, `[x]` done, `[?]` waitin
 
 See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In short: the gates are permission prompts, `sdd.toml` commands run only once you trust the file, approvals are bound to the spec's content, run state cannot be edited by agents, the channel's allowlist should contain only you, secrets never go in chat, and the plugin never commits or pushes by itself.
 
+## Privacy
+
+specsteward collects no telemetry and sends nothing anywhere by itself. Everything it records stays on your machine: `.sdd/` in the project and `~/.claude/specsteward/` for trust and approvals. The only network calls it makes are installing pinned versions of graphify and Bun, and the phone channel you choose to set up.
+
 ## Limitations
 
 - The token budget (`[limits] max_tokens`) is checked when a subagent or the session stops, so a run can go a little past it before halting. Cached reads are reported but not counted.
