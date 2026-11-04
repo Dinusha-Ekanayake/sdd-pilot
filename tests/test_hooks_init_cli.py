@@ -267,7 +267,7 @@ def test_cli_approve_and_start_in_one_prompt(repo: Path, monkeypatch: pytest.Mon
 
 def test_everything_that_resets_or_approves_is_an_ask_rule() -> None:
     gated = {rule.split()[-1].rstrip(":*)") for rule in ASK if ".sdd/bin/sdd" in rule}
-    assert gated == {"approve", "trust", "start", "resume"}
+    assert gated == {"approve", "trust", "start", "resume", "signoff"}
 
 
 def test_hooks_are_silent_outside_sdd_projects(
@@ -328,7 +328,7 @@ def test_hook_errors_never_break_the_session(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["start", "009", "--no-branch-check"]) == 0
 
-    def broken(cfg: config.Config) -> None:
+    def broken(cfg: config.Config, session_id: object = None) -> None:
         raise KeyError("boom")
 
     monkeypatch.setattr("specsteward.__main__.stop_decision", broken)

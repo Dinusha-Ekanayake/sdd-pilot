@@ -39,6 +39,7 @@ HOOKS = (
     "hook-guard",
     "hook-subagent-stop",
     "hook-session-start",
+    "hook-bind",
 )
 
 
@@ -81,7 +82,7 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--statusline", action="store_true", help="show the run in the status line")
     check = sub.add_parser("check", help="run the quality gate")
     check.add_argument(
-        "--task", help="record failures for this task (default: the group in flight)"
+        "--task", help="the orchestrator's gate: count failures for this task's caps"
     )
     brief = sub.add_parser("brief", help="write .sdd/briefs/<first-id>.md")
     brief.add_argument("tasks", nargs="+")
@@ -114,6 +115,9 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("halt", help="pause the run with a reason for the user").add_argument("reason")
     status = sub.add_parser("status", help="progress, halt reason, assumptions, tokens")
     status.add_argument("--json", action="store_true")
+    signoff = sub.add_parser("signoff", help="sign off a human task waiting at [?] (asks you)")
+    signoff.add_argument("task")
+    sub.add_parser("claim", help="continue an active run from this Claude Code session")
     sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
     graph_cmd = sub.add_parser("graph", help="code graph: show its status, or sync it now")
     graph_cmd.add_argument("action", choices=("status", "sync"))
@@ -156,34 +160,48 @@ def _hook(command: str) -> int:
 
 
 def _payload() -> dict[str, object]:
-    """The hook's JSON input, or {} when there is none (a terminal, or a test)."""
+    """The hook's JSON input, or {} when there is none (a terminal, or a test).
+
+    The launcher may already have read it (to skip Python for unrelated Bash calls) and
+    passes it on in SDD_HOOK_PAYLOAD.
+    """
     try:
-        if sys.stdin.isatty():
+        passed = os.environ.get("SDD_HOOK_PAYLOAD")
+        if passed is not None:
+            data = json.loads(passed)
+        elif sys.stdin.isatty():
             return {}
-        data = json.load(sys.stdin)
+        else:
+            data = json.load(sys.stdin)
     except (OSError, ValueError, AttributeError):
         return {}
     return data if isinstance(data, dict) else {}
 
 
 def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
-    if command in ("hook-stop", "hook-subagent-stop"):
-        run_state.observe_usage(cfg, _payload().get("transcript_path"))
-    if command == "hook-stop":
-        decision = stop_decision(cfg)
+    reads = ("hook-stop", "hook-subagent-stop", "hook-bind", "hook-session-start")
+    payload = _payload() if command in reads else {}
+    session_id = payload.get("session_id")
+    if command in ("hook-stop", "hook-subagent-stop") and payload:
+        run_state.observe_usage(cfg, payload.get("transcript_path"), session_id)
+    if command == "hook-bind":
+        run_state.bind_owner(cfg, payload)
+    elif command == "hook-stop":
+        decision = stop_decision(cfg, session_id)
         if decision:
             print(json.dumps(decision))
     elif command == "hook-format":
         format_file(cfg, json.load(sys.stdin))
     elif command == "hook-subagent-stop":
-        run_state.observe_agent(cfg)
+        agent_type = payload.get("agent_type") or payload.get("subagent_type")
+        run_state.observe_agent(cfg, agent_type, session_id)
     elif command == "hook-guard":
         guard = guard_decision(cfg, json.load(sys.stdin))
         if guard:
             print(json.dumps(guard))
     else:
         write_shim(cfg.root, LAUNCHER)
-        text = session_context()
+        text = session_context(cfg, session_id)
         # Only for a trusted sdd.toml: it chooses the graphify version that gets installed.
         if cfg.graphify_auto and trust.config_trusted(cfg.root):
             graph.ensure_ignores(cfg.root)  # now, not mid-run from the background sync
@@ -244,7 +262,9 @@ def _check(cfg: cfg_mod.Config, task: str | None) -> int:
     if all(r.ok for r in results):
         run_state.record_pass(cfg, before)
         return 0
-    task = task or run_state.current_task(cfg)
+    # Only the orchestrator's gate (`--task`) counts toward the failure caps: the
+    # implementer runs the same check while it works, and a failing test is how test-first
+    # starts, so its own runs must never halt the run.
     if task:
         state = run_state.record_failure(cfg, task, signature(results))
         if state["halted"]:
@@ -317,9 +337,11 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         "agent": lambda: run_state.record_agent(cfg, args.role, args.fresh),
         "review": lambda: run_state.record_review(cfg, args.task, args.verdict),
         "done": lambda: run_state.complete(cfg, args.task, args.human),
+        "signoff": lambda: run_state.signoff(cfg, args.task),
         "assume": lambda: run_state.record_assumption(root, args.task, args.text),
         "halt": lambda: run_state.halt(root, run_state.require(root), args.reason),
         "resume": lambda: run_state.resume(root),
+        "claim": lambda: run_state.claim(root),
         "stop": lambda: run_state.stop(root),
     }
     state = actions[command]()
