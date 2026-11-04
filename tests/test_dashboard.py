@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
-from sdd_pilot import state as run_state
-from sdd_pilot.__main__ import main
-from sdd_pilot.dashboard import DASHBOARD_FILE, render_dashboard, status_line
-from sdd_pilot.init import enable_statusline
-from sdd_pilot.tasks import parse_tasks
+from specsteward import config
+from specsteward import state as run_state
+from specsteward.__main__ import main
+from specsteward.dashboard import DASHBOARD_FILE, render_dashboard, status_line
+from specsteward.init import enable_statusline
+from specsteward.tasks import parse_tasks
 
 from .conftest import tasks_file, tick
 

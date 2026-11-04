@@ -10,13 +10,13 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-from sdd_pilot import trust, usage
-from sdd_pilot.config import SPEC_NUMBER, Config
-from sdd_pilot.dashboard import write_dashboard
-from sdd_pilot.graph import ensure_ignores
-from sdd_pilot.safefs import ensure_safe
-from sdd_pilot.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
-from sdd_pilot.worktree import fingerprint
+from specsteward import trust, usage
+from specsteward.config import SPEC_NUMBER, Config
+from specsteward.dashboard import write_dashboard
+from specsteward.graph import ensure_ignores
+from specsteward.safefs import ensure_safe
+from specsteward.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
+from specsteward.worktree import fingerprint
 
 STATE_DIR = Path(".sdd")
 STATE_FILE = STATE_DIR / "state.json"

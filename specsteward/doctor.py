@@ -8,12 +8,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from sdd_pilot import config as cfg_mod
-from sdd_pilot import graph, prereqs, trust
-from sdd_pilot.check import resolve_cmd
-from sdd_pilot.hooks import SHIM
-from sdd_pilot.init import ASK, DENY
-from sdd_pilot.remote import telegram_status
+from specsteward import config as cfg_mod
+from specsteward import graph, prereqs, trust
+from specsteward.check import resolve_cmd
+from specsteward.hooks import SHIM
+from specsteward.init import ASK, DENY
+from specsteward.remote import telegram_status
 
 OK, WARN, FAIL = "ok", "warn", "FAIL"
 MIN_PYTHON = (3, 11)
@@ -163,7 +163,7 @@ def _tools() -> list[Finding]:
 
 def _remote() -> list[Finding]:
     if not prereqs.phone_control_configured():
-        return [Finding(OK, "phone control not set up (optional: `/sdd-pilot:remote`)")]
+        return [Finding(OK, "phone control not set up (optional: `/specsteward:remote`)")]
     found = []
     if prereqs.find_bun() is None:
         found.append(Finding(FAIL, "Bun is missing; Telegram needs it", "`sdd install bun`"))
@@ -177,7 +177,7 @@ def _remote() -> list[Finding]:
         found.append(Finding(OK, "Telegram phone control ready"))
     else:
         problems = "; ".join(status["problems"])
-        found.append(Finding(WARN, f"Telegram: {problems}", "`/sdd-pilot:remote`"))
+        found.append(Finding(WARN, f"Telegram: {problems}", "`/specsteward:remote`"))
     return found
 
 
@@ -186,7 +186,7 @@ def run_doctor(start: Path, extra: list[Finding] | None = None) -> list[Finding]
     try:
         cfg = cfg_mod.load(start)
     except ValueError as error:
-        return [*found, Finding(FAIL, str(error), "run `/sdd-pilot:init`")]
+        return [*found, Finding(FAIL, str(error), "run `/specsteward:init`")]
     found.append(_git(cfg.root))
     found += _checks(cfg)
     found += _permissions(cfg.root)

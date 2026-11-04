@@ -2,11 +2,11 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
-from sdd_pilot.__main__ import main
-from sdd_pilot.analyze import CRITICAL, HIGH, LOW, MEDIUM, analyze, format_findings
-from sdd_pilot.brief import build_brief
-from sdd_pilot.init import init_project
+from specsteward import config
+from specsteward.__main__ import main
+from specsteward.analyze import CRITICAL, HIGH, LOW, MEDIUM, analyze, format_findings
+from specsteward.brief import build_brief
+from specsteward.init import init_project
 
 SPEC = """\
 # Spec 010: limiter

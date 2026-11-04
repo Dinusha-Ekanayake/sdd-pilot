@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews the diff for one task group against its brief - do the tests prove the requirements, correctness, silent decisions, project-specific invariants. Used by /sdd-pilot:run with Opus for high-risk tasks and Sonnet otherwise.
+description: Reviews the diff for one task group against its brief - do the tests prove the requirements, correctness, silent decisions, project-specific invariants. Used by /specsteward:run with Opus for high-risk tasks and Sonnet otherwise.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: sonnet
 ---

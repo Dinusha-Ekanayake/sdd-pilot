@@ -4,8 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import graph
-from sdd_pilot.__main__ import main
+from specsteward import graph
+from specsteward.__main__ import main
 
 from .conftest import write_config
 
@@ -70,7 +70,7 @@ def test_sync_installs_the_pinned_version_then_builds(
     lines = graph.sync(repo, "1.2.3", install_then_find)
     assert any("graphifyy==1.2.3" in cmd for cmd in runner.calls)
     assert "installed graphifyy==1.2.3" in lines and lines[-1] == "graph built"
-    assert (repo / ".graphifyignore").read_text().startswith("# Written by sdd-pilot")
+    assert (repo / ".graphifyignore").read_text().startswith("# Written by specsteward")
     assert "graphify-out/" in (repo / ".gitignore").read_text()
 
 

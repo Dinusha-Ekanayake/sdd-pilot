@@ -1,6 +1,6 @@
 """Phone control through the official Telegram channel plugin.
 
-sdd-pilot does not run its own bot. It reads the channel plugin's allowlist to know
+specsteward does not run its own bot. It reads the channel plugin's allowlist to know
 which chat to notify, and checks that the setup is safe (allowlist policy, no
 strangers). DM chat IDs equal the sender's user ID, so ``allowFrom`` is the chat list.
 """

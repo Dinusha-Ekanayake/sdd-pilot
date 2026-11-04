@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# sdd-pilot launcher: finds a Python 3.11+ (never the Windows Store stub) and runs the CLI.
+# specsteward launcher: finds a Python 3.11+ (never the Windows Store stub) and runs the CLI.
 # Override with SDD_PYTHON=/path/to/python.
 set -euo pipefail
 
@@ -31,9 +31,9 @@ pick_python() {
     return
   fi
   {
-    echo "sdd-pilot: Python 3.11+ not found."
+    echo "specsteward: Python 3.11+ not found."
     echo "  Install it from https://www.python.org/downloads/ , or install uv"
-    echo "  (https://docs.astral.sh/uv/) and sdd-pilot will use a uv-managed Python."
+    echo "  (https://docs.astral.sh/uv/) and specsteward will use a uv-managed Python."
     echo "  Or point SDD_PYTHON at a Python 3.11+ executable."
   } >&2
   exit 127

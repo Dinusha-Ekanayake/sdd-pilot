@@ -10,7 +10,7 @@ import subprocess
 from collections.abc import Callable
 from pathlib import Path
 
-# Never part of the fingerprint, whatever the project's .gitignore says: sdd-pilot's own
+# Never part of the fingerprint, whatever the project's .gitignore says: specsteward's own
 # state, the code graph, environments, and files that tools regenerate when tests run.
 SKIP_DIRS = {".git", ".sdd", ".venv", "venv", "node_modules", "__pycache__", "graphify-out"}
 SKIP_DIRS |= {".mypy_cache", ".pytest_cache", ".ruff_cache", ".hypothesis", ".tox", ".nox"}

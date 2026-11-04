@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from sdd_pilot.config import RISKS
+from specsteward.config import RISKS
 
 TODO, DONE, HUMAN = "[ ]", "[x]", "[?]"
 STATUSES = (TODO, DONE, HUMAN)

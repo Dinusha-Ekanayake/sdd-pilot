@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, trust
+from specsteward import config, trust
 
 TASKS = """\
 # Tasks 009: demo
@@ -42,7 +42,7 @@ def repo(tmp_path: Path) -> Path:
     (spec / "plan.md").write_text(PLAN, encoding="utf-8")
     (tmp_path / "sdd.toml").write_text("[brief]\ngraphify = false\n", encoding="utf-8")
     trust.trust_config(tmp_path)
-    from sdd_pilot.state import approval_digest
+    from specsteward.state import approval_digest
 
     trust.record_approval(tmp_path, "009", approval_digest(spec))
     return tmp_path
@@ -66,7 +66,7 @@ def tasks_file(repo: Path) -> Path:
 
 def tick(cfg: config.Config, task_id: str, human: bool = False) -> None:
     """Tick a task as the loop would: its gate passed and its review was clean for this tree."""
-    from sdd_pilot import state as run_state
+    from specsteward import state as run_state
 
     state = run_state.require(cfg.root)
     now = run_state.tree(cfg.root, state)
@@ -78,7 +78,7 @@ def tick(cfg: config.Config, task_id: str, human: bool = False) -> None:
 @pytest.fixture(autouse=True)
 def no_background_graph(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     """Tests never install graphify or spawn a background build; they record the request."""
-    from sdd_pilot import graph
+    from specsteward import graph
 
     calls: list[Path] = []
 
@@ -86,7 +86,7 @@ def no_background_graph(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
         calls.append(root)
         return True
 
-    from sdd_pilot import prereqs
+    from specsteward import prereqs
 
     monkeypatch.setattr(
         prereqs, "_real_bun_start", prereqs.start_background_bun_install, raising=False

@@ -3,9 +3,9 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, trust
-from sdd_pilot import state as run_state
-from sdd_pilot.tasks import HUMAN, parse_tasks
+from specsteward import config, trust
+from specsteward import state as run_state
+from specsteward.tasks import HUMAN, parse_tasks
 
 from .conftest import SPEC, tasks_file, tick, write_config
 

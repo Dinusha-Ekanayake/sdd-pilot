@@ -8,9 +8,9 @@ import html
 from pathlib import Path
 from typing import Any
 
-from sdd_pilot import usage
-from sdd_pilot.safefs import ensure_safe
-from sdd_pilot.tasks import DONE, HUMAN, Task, parse_tasks
+from specsteward import usage
+from specsteward.safefs import ensure_safe
+from specsteward.tasks import DONE, HUMAN, Task, parse_tasks
 
 DASHBOARD_FILE = Path(".sdd") / "dashboard.html"
 REFRESH_SECONDS = 10

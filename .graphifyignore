@@ -1,4 +1,4 @@
-# Written by sdd-pilot. graphify skips these; add your own data folders.
+# Written by specsteward. graphify skips these; add your own data folders.
 .sdd/
 .git/
 .venv/

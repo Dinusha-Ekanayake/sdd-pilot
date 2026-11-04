@@ -7,16 +7,16 @@ import os
 import sys
 from pathlib import Path
 
-from sdd_pilot import config as cfg_mod
-from sdd_pilot import graph, prereqs, trust
-from sdd_pilot import state as run_state
-from sdd_pilot.analyze import analyze
-from sdd_pilot.analyze import format_findings as format_analysis
-from sdd_pilot.brief import write_brief
-from sdd_pilot.check import format_report, run_all, signature
-from sdd_pilot.dashboard import status_line, write_dashboard
-from sdd_pilot.doctor import format_findings, run_doctor
-from sdd_pilot.hooks import (
+from specsteward import config as cfg_mod
+from specsteward import graph, prereqs, trust
+from specsteward import state as run_state
+from specsteward.analyze import analyze
+from specsteward.analyze import format_findings as format_analysis
+from specsteward.brief import write_brief
+from specsteward.check import format_report, run_all, signature
+from specsteward.dashboard import status_line, write_dashboard
+from specsteward.doctor import format_findings, run_doctor
+from specsteward.hooks import (
     SDD,
     format_file,
     guard_decision,
@@ -24,10 +24,10 @@ from sdd_pilot.hooks import (
     stop_decision,
     write_shim,
 )
-from sdd_pilot.init import enable_statusline, init_project
-from sdd_pilot.presets import PRESETS
-from sdd_pilot.remote import telegram_status
-from sdd_pilot.tasks import parse_tasks
+from specsteward.init import enable_statusline, init_project
+from specsteward.presets import PRESETS
+from specsteward.remote import telegram_status
+from specsteward.tasks import parse_tasks
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 LAUNCHER = PLUGIN_ROOT / "bin" / "sdd"
@@ -115,7 +115,7 @@ def _hook(command: str) -> int:
     try:
         _dispatch_hook(command, cfg)
     except Exception as error:  # noqa: BLE001 - a hook must never take the session down
-        print(f"sdd-pilot {command}: {type(error).__name__}: {error}", file=sys.stderr)
+        print(f"specsteward {command}: {type(error).__name__}: {error}", file=sys.stderr)
     return 0
 
 

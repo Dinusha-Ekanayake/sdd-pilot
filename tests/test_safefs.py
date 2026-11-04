@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import graph
-from sdd_pilot.hooks import write_shim
-from sdd_pilot.safefs import ensure_safe
+from specsteward import graph
+from specsteward.hooks import write_shim
+from specsteward.safefs import ensure_safe
 
 
 def _symlink(link: Path, target: Path, is_dir: bool = False) -> None:

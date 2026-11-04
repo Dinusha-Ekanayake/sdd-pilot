@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
-from sdd_pilot import state as run_state
-from sdd_pilot.hooks import stop_decision
+from specsteward import config
+from specsteward import state as run_state
+from specsteward.hooks import stop_decision
 
 from .conftest import tasks_file, tick, write_config
 
@@ -84,8 +84,8 @@ def test_tree_changing_while_the_gate_runs_is_not_a_pass(repo: Path, cfg: config
 
 
 def test_init_force_never_trusts_the_replacement(repo: Path) -> None:
-    from sdd_pilot import trust
-    from sdd_pilot.init import init_project
+    from specsteward import trust
+    from specsteward.init import init_project
 
     write_config(repo, '[wording]\nbanned = ["guaranteed"]\n')  # a tuned, trusted config
     lines = init_project(repo, "generic", force=True)
@@ -95,7 +95,7 @@ def test_init_force_never_trusts_the_replacement(repo: Path) -> None:
 
 @pytest.mark.parametrize("target", [".claude/settings.json", ".claude/settings.local.json"])
 def test_guard_denies_edits_to_claude_settings(repo: Path, cfg: config.Config, target: str) -> None:
-    from sdd_pilot.hooks import guard_decision
+    from specsteward.hooks import guard_decision
 
     (repo / ".claude").mkdir(exist_ok=True)
     (repo / target).write_text("{}")
@@ -107,7 +107,7 @@ def test_guard_denies_edits_to_claude_settings(repo: Path, cfg: config.Config, t
 
 
 def test_guard_matches_aliases_by_identity(repo: Path, cfg: config.Config) -> None:
-    from sdd_pilot.hooks import guard_decision
+    from specsteward.hooks import guard_decision
 
     state = repo / ".sdd" / "state.json"
     state.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +124,7 @@ def test_guard_matches_aliases_by_identity(repo: Path, cfg: config.Config) -> No
 def test_sdd_home_inside_the_project_is_refused(
     repo: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from sdd_pilot import trust
+    from specsteward import trust
 
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     monkeypatch.setenv("SDD_HOME", str(repo / "fake-store"))

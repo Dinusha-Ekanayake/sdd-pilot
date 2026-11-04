@@ -3,7 +3,13 @@
 ## 0.2.0 - 2026-11-04
 
 ### Upgrading from 0.1.0
-- Run `/sdd-pilot:init` (or `bash .sdd/bin/sdd init`) once: it adds the new permission rules and `specs/constitution.md`, and keeps your `sdd.toml`.
+- The project is renamed from **sdd-pilot** to **specsteward** (another spec-driven project
+  already used the old name). Remove the old plugin and install the new one:
+  `/plugin uninstall sdd-pilot@sdd-pilot`, `/plugin marketplace add Dinusha-Ekanayake/specsteward`,
+  `/plugin install specsteward@specsteward`. Commands are now `/specsteward:run`,
+  `/specsteward:init` and `/specsteward:remote`; the `sdd` CLI, `sdd.toml` and `.sdd/` are
+  unchanged, and `~/.claude/sdd-pilot/` moves to `~/.claude/specsteward/` by itself.
+- Run `/specsteward:init` (or `bash .sdd/bin/sdd init`) once: it adds the new permission rules and `specs/constitution.md`, and keeps your `sdd.toml`.
 - Review your `sdd.toml`, then run `bash .sdd/bin/sdd trust`. Until then `sdd check` and the format hook run nothing.
 - Approve specs again (`sdd approve <NNN>`): approvals now cover the spec, plan and task table.
 - A run started with 0.1.0 is not picked up; start it again with `sdd approve <NNN> --start` or `sdd start <NNN>`.
@@ -12,7 +18,7 @@
 - Run `bash .sdd/bin/sdd doctor` to confirm the setup.
 
 ### Security
-- `sdd.toml` commands (the gate and the format hook) run only after `sdd trust`, which is a permission prompt; any change makes the file untrusted again. The trust store lives outside the repository (`~/.claude/sdd-pilot/`).
+- `sdd.toml` commands (the gate and the format hook) run only after `sdd trust`, which is a permission prompt; any change makes the file untrusted again. The trust store lives outside the repository (`~/.claude/specsteward/`).
 - Spec approval is bound to a hash of `spec.md`, `plan.md` and the task definitions. Task statuses are recorded by `sdd start` and `sdd done`, so hand-ticked, deleted or re-risked rows halt the run.
 - `sdd start`, `sdd resume` and `sdd trust` are permission prompts; `start` refuses while a run is active; `sdd init --force` never trusts the config it replaces.
 - A PreToolUse hook and deny rules block file edits to `.sdd/`, the trust store and `.claude/settings*.json`, matching paths by file identity.
@@ -52,7 +58,7 @@
 
 Thanks to GitHub's [Spec Kit](https://github.com/github/spec-kit) for the ideas behind clarify, analyze and the constitution.
 
-## 0.1.0 - 2026-11-02
+## 0.1.0 - 2026-11-02 (as sdd-pilot)
 - Plugin with planner, implementer, reviewer and clerk agents; `run`, `init` and `remote` skills.
 - `sdd` CLI: gate, briefs, run state with caps, approvals log, hooks.
 - `sdd.toml` configuration with python, node and generic presets.

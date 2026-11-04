@@ -1,5 +1,5 @@
 {
-  "name": "sdd-pilot",
+  "name": "specsteward",
   "version": "0.2.0",
   "description": "Spec-driven development on autopilot: subagents implement approved specs task by task (Sonnet), risk-based reviews (Opus for high risk), a scripted quality gate, hard caps against runaway loops, and human gates you can approve from your phone via the Telegram channel.",
   "author": { "name": "Dinusha Ekanayake" },

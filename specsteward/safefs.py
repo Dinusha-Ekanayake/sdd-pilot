@@ -1,7 +1,7 @@
 """Refuse to write through symlinks that a repository ships.
 
 A cloned repository can commit ``.sdd/`` as a symlink, or a dangling ``.graphifyignore``
-symlink, so that sdd-pilot's own writes (state, logs, the shim, ignore files) land in a
+symlink, so that specsteward's own writes (state, logs, the shim, ignore files) land in a
 file outside the project, such as a shell profile. Every write goes through this check.
 """
 

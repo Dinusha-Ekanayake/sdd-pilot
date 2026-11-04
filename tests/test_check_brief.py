@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, trust
-from sdd_pilot import state as run_state
-from sdd_pilot.brief import build_brief, signatures
-from sdd_pilot.check import (
+from specsteward import config, trust
+from specsteward import state as run_state
+from specsteward.brief import build_brief, signatures
+from specsteward.check import (
     StepResult,
     format_report,
     guard_step,
@@ -17,7 +17,7 @@ from sdd_pilot.check import (
     scan_wording,
     signature,
 )
-from sdd_pilot.config import CheckStep, Wording
+from specsteward.config import CheckStep, Wording
 
 from .conftest import write_config
 

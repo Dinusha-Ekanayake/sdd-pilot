@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot.__main__ import main
-from sdd_pilot.doctor import FAIL, OK, WARN, Finding, format_findings, run_doctor
-from sdd_pilot.init import init_project
+from specsteward.__main__ import main
+from specsteward.doctor import FAIL, OK, WARN, Finding, format_findings, run_doctor
+from specsteward.init import init_project
 
 from .conftest import write_config
 

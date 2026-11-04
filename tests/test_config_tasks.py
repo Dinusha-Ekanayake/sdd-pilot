@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
-from sdd_pilot.tasks import DONE, HUMAN, TODO, next_group, parse_tasks, set_status
+from specsteward import config
+from specsteward.tasks import DONE, HUMAN, TODO, next_group, parse_tasks, set_status
 
 from .conftest import tasks_file
 

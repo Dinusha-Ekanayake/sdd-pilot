@@ -12,9 +12,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from sdd_pilot import state as run_state
-from sdd_pilot import trust
-from sdd_pilot.config import CONFIG_FILE, CheckStep, Config, Wording
+from specsteward import state as run_state
+from specsteward import trust
+from specsteward.config import CONFIG_FILE, CheckStep, Config, Wording
 
 MAX_DETAIL_LINES = 25
 COVERAGE_LINE = re.compile(r"^(TOTAL\b|All files\b|Statements\s*:)")

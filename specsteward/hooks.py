@@ -6,22 +6,22 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-from sdd_pilot import state as run_state
-from sdd_pilot import trust
-from sdd_pilot.check import resolve_cmd
-from sdd_pilot.config import Config
-from sdd_pilot.safefs import ensure_safe
-from sdd_pilot.tasks import parse_tasks
+from specsteward import state as run_state
+from specsteward import trust
+from specsteward.check import resolve_cmd
+from specsteward.config import Config
+from specsteward.safefs import ensure_safe
+from specsteward.tasks import parse_tasks
 
 SHIM = Path(".sdd") / "bin" / "sdd"
 SDD = f"bash {SHIM.as_posix()}"
 CONTINUE_REASON = (
     "SDD run for spec {spec}: {open} task(s) still open. Run `{sdd} next` and continue "
-    'the /sdd-pilot:run loop. If you need the user, run `{sdd} halt "<reason>"` first, '
+    'the /specsteward:run loop. If you need the user, run `{sdd} halt "<reason>"` first, '
     "then ask."
 )
 SESSION_CONTEXT = (
-    "sdd-pilot is active in this project. Run its CLI as `{sdd} <command>` from the "
+    "specsteward is active in this project. Run its CLI as `{sdd} <command>` from the "
     "repository root (no `cd` prefix). `{sdd} status` shows the current run."
 )
 
@@ -53,7 +53,7 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
 
 
 GUARD_REASON = (
-    "sdd-pilot: {path} holds run state, the trust store or the permission rules that make "
+    "specsteward: {path} holds run state, the trust store or the permission rules that make "
     "the gates. It is not edited with file tools, so gates and caps cannot be edited around. "
     "Use `{sdd} <command>`; the user can change Claude settings with /config or by hand."
 )

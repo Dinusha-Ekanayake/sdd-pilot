@@ -1,11 +1,11 @@
 """Trust and approval records kept outside the repository.
 
 A cloned repository can ship any ``sdd.toml``, and its ``[[check]]`` and ``[format]``
-commands run without a permission prompt. So sdd-pilot only runs them once the user has
+commands run without a permission prompt. So specsteward only runs them once the user has
 trusted that exact file (``sdd trust``, behind an ``ask`` rule). Spec approvals are stored
 the same way, bound to the content of ``spec.md``.
 
-The store lives in the user's home (``~/.claude/sdd-pilot/trust.json``, or ``$SDD_HOME``),
+The store lives in the user's home (``~/.claude/specsteward/trust.json``, or ``$SDD_HOME``),
 not in the project, so agents editing project files cannot forge it.
 """
 
@@ -18,10 +18,25 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, TypeVar
 
-from sdd_pilot.config import CONFIG_FILE
+from specsteward.config import CONFIG_FILE
 
 STORE_NAME = "trust.json"
 T = TypeVar("T")
+
+
+LEGACY_DIR_NAME = "sdd-pilot"  # the project's name before 0.2.0
+
+
+def user_dir() -> Path:
+    """``~/.claude/specsteward``, moved over from the pre-rename folder on first use."""
+    current = Path.home() / ".claude" / "specsteward"
+    legacy = Path.home() / ".claude" / LEGACY_DIR_NAME
+    if not current.exists() and legacy.is_dir() and not legacy.is_symlink():
+        try:
+            os.replace(legacy, current)
+        except OSError:
+            return legacy  # in use right now; keep using it rather than lose records
+    return current
 
 
 def store_path() -> Path:
@@ -29,7 +44,7 @@ def store_path() -> Path:
     since agents can write there."""
     home = os.environ.get("SDD_HOME")
     if not home:
-        return Path.home() / ".claude" / "sdd-pilot" / STORE_NAME
+        return user_dir() / STORE_NAME
     base = Path(home).resolve()
     for project in (os.environ.get("CLAUDE_PROJECT_DIR"), os.getcwd()):
         if project and base.is_relative_to(Path(project).resolve()):

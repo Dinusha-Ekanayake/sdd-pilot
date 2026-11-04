@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot.worktree import fingerprint
+from specsteward.worktree import fingerprint
 
 
 def test_fingerprint_without_git_follows_files_and_skips_run_state(tmp_path: Path) -> None:
