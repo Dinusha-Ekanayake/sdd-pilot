@@ -17,6 +17,7 @@
 - `sdd statusline`, `sdd init --statusline`, and a read-only `.sdd/dashboard.html`.
 - Automatic graphify code graph: installed (pinned), built and refreshed in the background, on every machine; `sdd graph status|sync`.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final review.
+- Prerequisites: Bun is installed automatically (pinned, per user, no admin rights) when phone control is set up; `sdd install bun`; the launcher falls back to a uv-managed Python; `sdd doctor` checks gh, uv/pipx, Bun and Telegram.
 - `sdd analyze`: scripted cross-artifact checks; `sdd approve` refuses CRITICAL findings (`--anyway` to override).
 - Project constitution (`specs/constitution.md`): MUST rules in every brief, violations CRITICAL in review.
 - Clarify step: up to five `[NEEDS CLARIFICATION]` questions answered before approval (`answer <NNN>: ...` from the phone).

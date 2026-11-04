@@ -35,7 +35,19 @@ Long agent runs fail in predictable ways. sdd-pilot has a mitigation for each:
 
 ## Install
 
-Requires Claude Code and Python 3.11+ (standard library only; nothing to `pip install`).
+### Requirements
+
+| What | Needed for | How you get it |
+|---|---|---|
+| [Claude Code](https://claude.com/claude-code) | everything | install it first |
+| `bash` | the CLI and hooks | built in on macOS and Linux; on Windows it comes with [Git for Windows](https://git-scm.com/download/win), which Claude Code uses too |
+| Python 3.11+ | the CLI (standard library only; nothing to `pip install`) | [python.org](https://www.python.org/downloads/), or have [uv](https://docs.astral.sh/uv/) and sdd-pilot uses a uv-managed Python automatically |
+| `git` | branches, diffs, the gate fingerprint | [git-scm.com](https://git-scm.com/) |
+| graphify | the code graph agents query | **installed automatically** (pinned) with uv, pipx or pip |
+| [Bun](https://bun.sh) | phone control only (it runs the official Telegram plugin) | **installed automatically** (pinned) when you set up phone control |
+| `gh` (GitHub CLI) | opening the PR when you say "ship" (optional) | [cli.github.com](https://cli.github.com/) |
+
+`bash .sdd/bin/sdd doctor` checks all of these and prints the fix for anything missing.
 
 ```text
 /plugin marketplace add Dinusha-Ekanayake/sdd-pilot
@@ -120,7 +132,7 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.
 - Subagents start without conversation context, so briefs matter; check "BRIEF GAPS" in reports.
 - Quality still depends on your tests and spec. Green checks prove consistency, not correctness; the reviewer is a second opinion, not a guarantee.
-- Telegram needs [Bun](https://bun.sh) (for the official channel plugin) and a running session started with `--channels`.
+- Telegram needs [Bun](https://bun.sh) (installed automatically by `/sdd-pilot:remote`) and a running session started with `--channels`.
 
 ## Development
 

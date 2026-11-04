@@ -25,7 +25,17 @@ pick_python() {
     echo "py -3"
     return
   fi
-  echo "sdd-pilot: Python 3.11+ not found. Install it or set SDD_PYTHON." >&2
+  # No Python 3.11+, but uv can provide one (it downloads a managed Python once).
+  if command -v uv >/dev/null 2>&1 && works uv run --no-project --quiet --python ">=3.11" python; then
+    echo "uv run --no-project --quiet --python >=3.11 python"
+    return
+  fi
+  {
+    echo "sdd-pilot: Python 3.11+ not found."
+    echo "  Install it from https://www.python.org/downloads/ , or install uv"
+    echo "  (https://docs.astral.sh/uv/) and sdd-pilot will use a uv-managed Python."
+    echo "  Or point SDD_PYTHON at a Python 3.11+ executable."
+  } >&2
   exit 127
 }
 

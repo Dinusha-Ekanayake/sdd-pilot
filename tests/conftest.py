@@ -86,6 +86,12 @@ def no_background_graph(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
         calls.append(root)
         return True
 
+    from sdd_pilot import prereqs
+
+    monkeypatch.setattr(
+        prereqs, "_real_bun_start", prereqs.start_background_bun_install, raising=False
+    )
+    monkeypatch.setattr(prereqs, "start_background_bun_install", lambda entry: False)
     monkeypatch.setattr(graph, "_real_start", graph.start_background_sync, raising=False)
     monkeypatch.setattr(graph, "start_background_sync", fake_start)
     return calls

@@ -1,6 +1,7 @@
 """``sdd doctor``: check everything a run depends on, and say how to fix what is missing."""
 
 import json
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -8,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from sdd_pilot import config as cfg_mod
-from sdd_pilot import graph, trust
+from sdd_pilot import graph, prereqs, trust
 from sdd_pilot.check import resolve_cmd
 from sdd_pilot.hooks import SHIM
 from sdd_pilot.init import ASK, DENY
@@ -147,11 +148,37 @@ def _graph(cfg: cfg_mod.Config) -> Finding:
     return Finding(WARN, f"code graph is {status}", "`sdd graph sync` (also runs at session start)")
 
 
-def _remote() -> Finding:
+def _tools() -> list[Finding]:
+    found = []
+    if shutil.which("gh"):
+        found.append(Finding(OK, "GitHub CLI (gh) found"))
+    else:
+        found.append(Finding(WARN, "GitHub CLI (gh) not found", "install it to open PRs on ship"))
+    if graph.find_graphify() is None and not (shutil.which("uv") or shutil.which("pipx")):
+        found.append(
+            Finding(WARN, "neither uv nor pipx found", "graphify falls back to pip --user")
+        )
+    return found
+
+
+def _remote() -> list[Finding]:
+    if not prereqs.phone_control_configured():
+        return [Finding(OK, "phone control not set up (optional: `/sdd-pilot:remote`)")]
+    found = []
+    if prereqs.find_bun() is None:
+        found.append(Finding(FAIL, "Bun is missing; Telegram needs it", "`sdd install bun`"))
+    elif not prereqs.bun_on_path():
+        fix = "restart the terminal and Claude Code"
+        found.append(Finding(WARN, "Bun is installed but not on PATH", fix))
+    else:
+        found.append(Finding(OK, "Bun found"))
     status = telegram_status()
     if status["ready"]:
-        return Finding(OK, "Telegram phone control ready")
-    return Finding(WARN, "Telegram not set up (optional)", "`/sdd-pilot:remote` to set it up")
+        found.append(Finding(OK, "Telegram phone control ready"))
+    else:
+        problems = "; ".join(status["problems"])
+        found.append(Finding(WARN, f"Telegram: {problems}", "`/sdd-pilot:remote`"))
+    return found
 
 
 def run_doctor(start: Path, extra: list[Finding] | None = None) -> list[Finding]:
@@ -166,7 +193,8 @@ def run_doctor(start: Path, extra: list[Finding] | None = None) -> list[Finding]
     found += _install(cfg.root)
     found.append(_graph(cfg))
     found += extra or []
-    found.append(_remote())
+    found += _tools()
+    found += _remote()
     return found
 
 

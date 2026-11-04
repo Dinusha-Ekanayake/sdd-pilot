@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from sdd_pilot import config as cfg_mod
-from sdd_pilot import graph, trust
+from sdd_pilot import graph, prereqs, trust
 from sdd_pilot import state as run_state
 from sdd_pilot.analyze import analyze
 from sdd_pilot.analyze import format_findings as format_analysis
@@ -90,6 +90,8 @@ def _parser() -> argparse.ArgumentParser:
     graph_cmd.add_argument("action", choices=("status", "sync"))
     sub.add_parser("statusline", help="one line for Claude Code's status line")
     sub.add_parser("dashboard", help="write .sdd/dashboard.html and print its path")
+    install = sub.add_parser("install", help="install a prerequisite (bun, for phone control)")
+    install.add_argument("tool", choices=("bun",))
     doctor = sub.add_parser("doctor", help="check the setup and say how to fix problems")
     doctor.add_argument("--json", action="store_true")
     for name in ("next", "resume", "stop", "remote", *HOOKS):
@@ -138,6 +140,7 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
             graph.ensure_ignores(cfg.root)  # now, not mid-run from the background sync
             graph.start_background_sync(cfg.root, ENTRY)
             text += graph.session_hint(cfg.root)
+        prereqs.start_background_bun_install(ENTRY)  # only if phone control is set up
         context = {"hookEventName": "SessionStart", "additionalContext": text}
         print(json.dumps({"hookSpecificOutput": context}))
 
@@ -270,6 +273,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "statusline":
             return _statusline()
+        if args.command == "install":
+            ok, message = prereqs.install_bun()
+            print(message)
+            return 0 if ok else 1
         if args.command == "doctor":
             return _doctor(args.json)
         if args.command == "init":

@@ -7,6 +7,8 @@
 - Writes `.sdd/` (git-ignored), merges permission rules into `.claude/settings.json`, and keeps a trust store in `~/.claude/sdd-pilot/trust.json` (or `$SDD_HOME`).
 - With `[graphify] auto = true` (the default) and a **trusted** `sdd.toml`, installs a pinned version of the `graphifyy` package with `uv tool`, `pipx` or `pip --user` (run from your home directory, in isolated mode), and builds a local code graph in `graphify-out/`. Set `auto = false` to turn this off.
 
+- Once phone control is configured (a Telegram token or pairing exists), installs Bun for your user: Homebrew or winget when available, else Bun's official script downloaded over HTTPS from bun.sh and run with a pinned version, from your home directory, without admin rights. It does not install Bun for anyone who has not set up phone control.
+
 It never commits, pushes, opens a PR or reads secrets on its own.
 
 ## Trust: commands from a cloned repository
