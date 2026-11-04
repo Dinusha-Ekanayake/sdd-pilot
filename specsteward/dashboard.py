@@ -68,25 +68,44 @@ main{max-width:960px;margin:0 auto;padding:24px 16px}
 h1{font-size:22px;margin:0 0 4px}.muted{color:var(--muted)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
 padding:16px;margin:16px 0}
-.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:600;font-size:13px}
+.pill{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:600;font-size:13px;
+vertical-align:middle;border:1px solid currentColor}
 .running{color:var(--accent)}.done{color:var(--ok)}.halted{color:var(--bad)}.stopped{color:var(--muted)}
+h2{font-size:15px;margin:0 0 8px}ul{margin:0;padding-left:20px}
+.st{font-weight:600;font-size:13px}.st-done{color:var(--ok)}.st-wait{color:var(--warn)}
+.st-open{color:var(--muted)}
 .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:12px}
 .bar span{display:block;height:100%;background:var(--ok)}
 .table{overflow-x:auto}table{width:100%;border-collapse:collapse}
 th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 td.num{font-variant-numeric:tabular-nums}.risk-high{color:var(--warn);font-weight:600}
-.risk-human{color:var(--accent);font-weight:600}code{font-size:13px}
+.risk-human{color:var(--accent);font-weight:600}
+code{font-size:13px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;
+background:var(--line);padding:1px 5px;border-radius:4px}
+td:first-child code{background:none;padding:0}
 """
 
 
+def _inline_code(text: str) -> str:
+    """Escape task text and show its `backticked` names as code, as the spec does."""
+    parts = html.escape(text).split("`")
+    if len(parts) % 2 == 0:  # an unmatched backtick: show the text as written
+        return html.escape(text)
+    return "".join(f"<code>{part}</code>" if i % 2 else part for i, part in enumerate(parts))
+
+
 def _row(task: Task, entry: dict[str, Any]) -> str:
-    status = {"[x]": "done", "[?]": "awaiting you", "[ ]": "open"}[task.status]
+    label, kind = {
+        "[x]": ("done", "done"),
+        "[?]": ("awaiting you", "wait"),
+        "[ ]": ("open", "open"),
+    }[task.status]
     cells = (
         f"<code>{html.escape(task.id)}</code>",
-        html.escape(task.text),
+        _inline_code(task.text),
         f'<span class="risk-{task.risk}">{task.risk}</span>',
-        status,
+        f'<span class="st st-{kind}">{"✓ " if kind == "done" else ""}{label}</span>',
         f'<span class="num">{entry.get("fix_attempts", 0)}</span>',
         f'<span class="num">{entry.get("review_rounds", 0)}</span>',
     )
