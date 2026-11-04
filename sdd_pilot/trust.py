@@ -13,14 +13,15 @@ import hashlib
 import json
 import os
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
 
 from sdd_pilot.config import CONFIG_FILE
 
 STORE_NAME = "trust.json"
+T = TypeVar("T")
 
 
 def store_path() -> Path:
@@ -47,13 +48,40 @@ def _key(root: Path) -> str:
     return root.resolve().as_posix().lower() if os.name == "nt" else root.resolve().as_posix()
 
 
+RETRY_SECONDS = 3.0
+
+
+def _retrying(action: Callable[[], T]) -> T:
+    """Windows refuses to open or replace a file another process has open (or is deleting)
+    with PermissionError, where POSIX would not; such clashes clear within milliseconds."""
+    deadline = time.monotonic() + RETRY_SECONDS
+    while True:
+        try:
+            return action()
+        except PermissionError:
+            if time.monotonic() > deadline:
+                raise
+            time.sleep(0.02)
+
+
 def _load() -> dict[str, Any]:
+    """The store; empty only when it does not exist yet or is not valid JSON.
+
+    A file that exists but cannot be read raises instead of reading as empty, because a
+    transaction would then save the empty store over every record.
+    """
     path = store_path()
-    if not path.exists():
-        return {"projects": {}}
     try:
-        data: dict[str, Any] = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        text = _retrying(lambda: path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"projects": {}}
+    except OSError as error:
+        raise ValueError(f"cannot read the trust store {path}: {error}") from error
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return {"projects": {}}
+    if not isinstance(data, dict) or not isinstance(data.get("projects", {}), dict):
         return {"projects": {}}
     data.setdefault("projects", {})
     return data
@@ -64,7 +92,7 @@ def _save(data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(tmp, path)
+    _retrying(lambda: os.replace(tmp, path))
 
 
 LOCK_TIMEOUT = 10.0
@@ -82,7 +110,7 @@ def _transaction() -> Iterator[dict[str, Any]]:
         try:
             os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
             break
-        except FileExistsError:
+        except (FileExistsError, PermissionError):  # Windows
             try:
                 if time.time() - lock.stat().st_mtime > STALE_LOCK:
                     lock.unlink(missing_ok=True)  # left behind by a killed process

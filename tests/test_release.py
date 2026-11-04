@@ -76,3 +76,39 @@ def test_bot_token_needs_a_value(
     monkeypatch.delenv("TELEGRAM_BOT_TOKEN", raising=False)
     (tmp_path / ".env").write_text(content)
     assert telegram_status(tmp_path)["token_set"] is expected
+
+
+def test_an_unreadable_store_is_never_saved_over_as_empty(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    trust.record_approval(repo, "010", "keep-me")
+    store = trust.store_path()
+    real_read = Path.read_text
+
+    def locked(self: Path, *args: object, **kwargs: object) -> str:
+        if self == store:
+            raise PermissionError(13, "in use by another process")
+        return real_read(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(trust, "RETRY_SECONDS", 0.1)
+    monkeypatch.setattr(Path, "read_text", locked)
+    with pytest.raises(ValueError, match="cannot read the trust store"):
+        trust.record_approval(repo, "011", "new")
+    monkeypatch.setattr(Path, "read_text", real_read)
+    assert trust.approved_hash(repo, "010") == "keep-me"  # nothing was wiped
+
+
+def test_a_brief_windows_sharing_clash_is_retried(
+    repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real_replace = trust.os.replace
+    clashes = [PermissionError(13, "sharing violation")] * 3
+
+    def flaky(src: str, dst: str) -> None:
+        if clashes:
+            raise clashes.pop()
+        real_replace(src, dst)
+
+    monkeypatch.setattr(trust.os, "replace", flaky)
+    trust.record_approval(repo, "012", "abc")
+    assert trust.approved_hash(repo, "012") == "abc" and not clashes
