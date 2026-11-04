@@ -41,13 +41,28 @@ HOOKS = (
 )
 
 
+def version() -> str:
+    """The plugin version, from its manifest."""
+    manifest = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
+    try:
+        return str(json.loads(manifest.read_text(encoding="utf-8"))["version"])
+    except (OSError, ValueError, KeyError):
+        return "unknown"
+
+
 def _start_dir() -> Path:
     return Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path.cwd())
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="sdd", description="Spec-driven runs for Claude Code")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="sdd",
+        description="specsteward: spec-driven runs for Claude Code, with human gates.",
+        epilog="In a project, run it as `bash .sdd/bin/sdd <command>`. Docs: "
+        "https://github.com/Dinusha-Ekanayake/specsteward",
+    )
+    parser.add_argument("--version", action="version", version=f"specsteward {version()}")
+    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
     init = sub.add_parser("init", help="set up sdd.toml, templates and permissions")
     init.add_argument("--preset", choices=PRESETS, default="auto")
     init.add_argument("--specs-dir", default="specs")
@@ -76,17 +91,17 @@ def _parser() -> argparse.ArgumentParser:
     agent = sub.add_parser("agent", help="count a subagent run")
     agent.add_argument("role", choices=("planner", "implementer", "reviewer", "converger", "clerk"))
     agent.add_argument("--fresh", action="store_true")
-    review = sub.add_parser("review")
+    review = sub.add_parser("review", help="record the reviewer's verdict for the group")
     review.add_argument("task")
     review.add_argument("verdict", choices=("clean", "changes"))
-    done = sub.add_parser("done")
+    done = sub.add_parser("done", help="tick a task (needs a passing gate and review)")
     done.add_argument("task")
     done.add_argument("--human", action="store_true", help="mark [?]: needs sign-off")
-    assume = sub.add_parser("assume")
+    assume = sub.add_parser("assume", help="log an assumption the implementer made")
     assume.add_argument("task")
     assume.add_argument("text")
-    sub.add_parser("halt").add_argument("reason")
-    status = sub.add_parser("status")
+    sub.add_parser("halt", help="pause the run with a reason for the user").add_argument("reason")
+    status = sub.add_parser("status", help="progress, halt reason, assumptions, tokens")
     status.add_argument("--json", action="store_true")
     sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
     graph_cmd = sub.add_parser("graph", help="code graph: show its status, or sync it now")
@@ -97,7 +112,14 @@ def _parser() -> argparse.ArgumentParser:
     install.add_argument("tool", choices=("bun",))
     doctor = sub.add_parser("doctor", help="check the setup and say how to fix problems")
     doctor.add_argument("--json", action="store_true")
-    for name in ("next", "resume", "stop", "remote", *HOOKS):
+    for name, text in (
+        ("next", "the next task group to run, or halted / done"),
+        ("resume", "clear a halt after the user dealt with it (asks for permission)"),
+        ("stop", "end the run"),
+        ("remote", "phone control status (Telegram or Discord)"),
+    ):
+        sub.add_parser(name, help=text)
+    for name in HOOKS:  # called by Claude Code, not by people
         sub.add_parser(name)
     return parser
 

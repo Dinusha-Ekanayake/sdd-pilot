@@ -529,7 +529,7 @@ def summary(root: Path) -> str:
     """A few plain lines for a phone screen: progress, halt reason, assumptions."""
     state = load(root)
     if state is None:
-        return "No SDD run in this project."
+        return "No specsteward run in this project."
     tasks = parse_tasks(tasks_path(root, state))
     done = [t.id for t in tasks if t.status == DONE]
     waiting = [t.id for t in tasks if t.status == HUMAN]
