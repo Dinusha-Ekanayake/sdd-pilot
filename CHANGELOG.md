@@ -44,6 +44,7 @@
 - Docs: a step-by-step setup guide (`docs/setup-guide.md`) and an FAQ with troubleshooting for every error and halt message (`docs/faq.md`).
 - `sdd --version`, help text for every command, plugin manifest homepage and repository, a supported-versions table in SECURITY.md, a privacy note, CodeQL code scanning, and least-privilege CI permissions.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
+- The launcher handles a Python path with spaces (for example `SDD_PYTHON` under `C:\Users\First Last\`); the clerk writes its PR draft next to the spec (`specs/<NNN>-*/pr.md`) instead of into `.sdd/`, which file tools may not write.
 - `sdd signoff <task>` (an ask rule; `signoff <task>` from the phone) accepts a human task waiting at `[?]`; before, the only way was editing tasks.md, which halts the run.
 - The implementer's own `sdd check` runs no longer count toward the failure caps (a failing test is how test-first starts); only the orchestrator's gate, `sdd check --task <id>`, does. Found in a dogfood run, where ordinary test-first work halted the run.
 - Sessions: a run belongs to the session that starts, resumes or claims it (`sdd claim`); only that session is told to continue and only its subagents and tokens count, and other sessions are told whose run it is. Waiting for a subagent that is still working no longer counts as a stop without progress, a finished subagent counts as progress, and subagents of other tools are not counted. `sdd doctor` warns when several sessions run the same chat bot.

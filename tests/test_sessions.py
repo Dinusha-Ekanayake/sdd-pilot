@@ -291,3 +291,26 @@ def test_signoff_is_a_gate() -> None:
     from specsteward.init import ASK
 
     assert "Bash(bash .sdd/bin/sdd signoff:*)" in ASK
+
+
+# --- a Python path with a space (C:\Users\First Last\...) ---------------------------------
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_launcher_runs_a_python_whose_path_has_a_space(repo: Path, tmp_path: Path) -> None:
+    folder = tmp_path / "First Last" / "python"
+    folder.mkdir(parents=True)
+    wrapper = folder / "python"  # stands in for C:\Users\First Last\...\python.exe
+    real = Path(sys.executable).as_posix()
+    wrapper.write_text(f'#!/usr/bin/env bash\nexec "{real}" "$@"\n', encoding="utf-8")
+    wrapper.chmod(0o755)
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(repo), "SDD_PYTHON": wrapper.as_posix()}
+    proc = subprocess.run(
+        [str(shutil.which("bash")), str(ROOT / "bin" / "sdd"), "--version"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout.startswith("specsteward ")

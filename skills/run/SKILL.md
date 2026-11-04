@@ -85,7 +85,7 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    Then run the clerk, and a final reviewer on the whole branch with
    `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary,
    tasks waiting for sign-off (`[?]`), the final review findings and the PR draft path
-   (`.sdd/pr-<NNN>.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once
+   (`<specs_dir>/<NNN>-*/pr.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once
    more; commit only on PASS. Then `SDD stop`.
 4. **Halted.** Show and send the reason and exactly what you need. Stop and wait. After
    the answer: `SDD resume` (it asks the user for permission, because it resets the
