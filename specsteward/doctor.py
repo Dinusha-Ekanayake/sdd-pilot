@@ -95,8 +95,9 @@ def _permissions(root: Path) -> list[Finding]:
         found.append(Finding(OK, "approve, trust, start and resume prompt you"))
     if git:
         found.append(Finding(WARN, f"these run without asking: {git}", "fine if you chose it"))
-    if any(rule not in rules["deny"] for rule in DENY):
-        found.append(Finding(WARN, "deny rules for .sdd/ are missing", "run `sdd init` again"))
+    missing_deny = [rule for rule in DENY if rule not in rules["deny"]]
+    if missing_deny:
+        found.append(Finding(WARN, f"deny rules missing: {missing_deny}", "run `sdd init` again"))
     if not any((s.get("sandbox") or {}).get("enabled") for s in settings):
         found.append(
             Finding(

@@ -15,7 +15,9 @@
     ],
     "deny": [
       "Edit(.sdd/**)",
-      "Edit(~/.claude/specsteward/**)"
+      "Edit(~/.claude/specsteward/**)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)"
     ]
   }
 }

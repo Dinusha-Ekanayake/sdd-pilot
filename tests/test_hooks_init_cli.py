@@ -382,3 +382,18 @@ def test_an_empty_gate_fails_and_init_says_so(
     assert "add your test command under [[check]]" in out and "/specsteward:run plan" in out
     assert main(["check"]) == 1
     assert "no [[check]] steps, so the gate would prove nothing" in capsys.readouterr().out
+
+
+def test_rerunning_init_keeps_relaxed_git_rules_but_restores_gates(tmp_path: Path) -> None:
+    init_project(tmp_path, "generic")
+    settings = tmp_path / ".claude" / "settings.json"
+    data = json.loads(settings.read_text())
+    data["permissions"]["ask"] = [r for r in data["permissions"]["ask"] if "git push" not in r]
+    data["permissions"]["ask"].remove("Bash(bash .sdd/bin/sdd approve:*)")  # a gate removed
+    data["permissions"]["deny"] = []
+    settings.write_text(json.dumps(data))
+    init_project(tmp_path, "generic")  # e.g. after an upgrade
+    after = json.loads(settings.read_text())["permissions"]
+    assert "Bash(git push:*)" not in after["ask"]  # the user's choice stays
+    assert "Bash(bash .sdd/bin/sdd approve:*)" in after["ask"]  # the gate comes back
+    assert set(DENY) <= set(after["deny"])

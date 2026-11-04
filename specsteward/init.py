@@ -63,10 +63,15 @@ def render_config(root: Path, preset: str = "auto", specs_dir: str = "specs") ->
 def _merge_settings(path: Path) -> list[str]:
     settings: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     permissions = settings.setdefault("permissions", {})
+    # On a re-run (upgrades), add only the sdd gates and deny rules: the git rules are the
+    # user's to relax, and removing one must not be undone by the next `init`.
+    rerun = ALLOW[0] in permissions.get("allow", [])
     added = []
     for key, rules in (("allow", ALLOW), ("ask", ASK), ("deny", DENY)):
         existing = permissions.setdefault(key, [])
         for rule in rules:
+            if rerun and key != "deny" and ".sdd/bin/sdd" not in rule:
+                continue
             if rule not in existing:
                 existing.append(rule)
                 added.append(f"{key}: {rule}")
