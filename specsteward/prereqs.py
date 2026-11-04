@@ -5,11 +5,13 @@ so it is needed only for phone control. specsteward installs it automatically wh
 control is set up (``/specsteward:remote``) or already configured, never otherwise:
 
 - the OS package manager when there is one (Homebrew on macOS, winget on Windows);
-- else Bun's official install script, downloaded over HTTPS from bun.sh into a temporary
-  file (never piped into a shell) and run with a pinned version, from the home directory;
+- else Bun's official install script at the pinned release tag, downloaded over HTTPS
+  into a temporary file, checked against its pinned sha256 and only then run (never
+  piped into a shell), with the pinned version, from the home directory;
 - never with sudo or administrator rights; it installs into ``~/.bun`` for this user.
 """
 
+import hashlib
 import os
 import shutil
 import subprocess
@@ -24,8 +26,13 @@ from specsteward.remote import state_dir
 from specsteward.trust import user_dir
 
 BUN_VERSION = "1.4.4"  # pinned; bump deliberately after checking the release notes
-SCRIPT_UNIX = "https://bun.sh/install"
-SCRIPT_WINDOWS = "https://bun.sh/install.ps1"
+# Bun's official install scripts as they are at the pinned release tag, and their sha256.
+# A script that does not match is never run. Bump together with BUN_VERSION.
+SCRIPT_BASE = f"https://raw.githubusercontent.com/oven-sh/bun/bun-v{BUN_VERSION}/src/runtime/cli/"
+SCRIPT_SHA256 = {
+    "install.sh": "04882bf41679d49d9af108657a1e5515bf04fdf2940d12c0d0b1e5d79dc53be8",
+    "install.ps1": "11195a540a5e7ce6c6992e044b8c0dde17dbb254448098a24d21dd878c796daa",
+}
 INSTALL_TIMEOUT = 10 * 60
 RETRY_SECONDS = 24 * 60 * 60  # a failed background install is retried once a day
 
@@ -65,7 +72,7 @@ def _run(cmd: list[str]) -> int:
 
 
 def _fetch(url: str, target: Path) -> None:
-    if not url.startswith("https://bun.sh/"):
+    if not url.startswith("https://raw.githubusercontent.com/oven-sh/bun/"):
         raise ValueError(f"refusing to download an installer from {url}")
     with urllib.request.urlopen(url, timeout=60) as response:  # noqa: S310 - fixed https URL
         target.write_bytes(response.read())
@@ -115,11 +122,15 @@ def _script(platform: str, fetch: Fetcher, run: Runner) -> tuple[bool, str]:
             hint = "for example `sudo apt install unzip`" if "unzip" in missing else ""
             return False, f"Bun's installer needs {', '.join(missing)}; install it ({hint})"
     with tempfile.TemporaryDirectory() as tmp:
-        script = Path(tmp) / ("install.ps1" if windows else "install.sh")
+        name = "install.ps1" if windows else "install.sh"
+        script = Path(tmp) / name
         try:
-            fetch(SCRIPT_WINDOWS if windows else SCRIPT_UNIX, script)
+            fetch(SCRIPT_BASE + name, script)
         except (OSError, ValueError) as error:
             return False, f"could not download Bun's installer: {error}"
+        digest = hashlib.sha256(script.read_bytes()).hexdigest()
+        if digest != SCRIPT_SHA256[name]:
+            return False, f"Bun's {name} does not match its pinned checksum; not running it"
         if windows:
             cmd = [
                 "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
