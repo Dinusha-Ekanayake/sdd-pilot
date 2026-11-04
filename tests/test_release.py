@@ -160,3 +160,9 @@ def test_every_halt_and_error_is_explained_in_the_faq(message: str) -> None:
     faq = (ROOT / "docs" / "faq.md").read_text(encoding="utf-8").replace("`", "")
     assert message in source.replace("`", ""), f"message no longer in code: {message}"
     assert message in faq, f"FAQ does not explain: {message}"
+
+
+def test_the_old_plugin_name_migrates_to_the_new_one() -> None:
+    market = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
+    assert market["renames"] == {"sdd-pilot": "specsteward"}
+    assert market["plugins"][0]["name"] == "specsteward"

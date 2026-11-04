@@ -9,6 +9,8 @@
   `/plugin install specsteward@specsteward`. Commands are now `/specsteward:run`,
   `/specsteward:init` and `/specsteward:remote`; the `sdd` CLI, `sdd.toml` and `.sdd/` are
   unchanged, and `~/.claude/sdd-pilot/` moves to `~/.claude/specsteward/` by itself.
+  The marketplace declares the rename (`renames`), so an existing `sdd-pilot` install
+  migrates to `specsteward` on its next sync.
 - Run `/specsteward:init` (or `bash .sdd/bin/sdd init`) once: it adds the new permission rules and `specs/constitution.md`, and keeps your `sdd.toml`.
 - Review your `sdd.toml`, then run `bash .sdd/bin/sdd trust`. Until then `sdd check` and the format hook run nothing.
 - Approve specs again (`sdd approve <NNN>`): approvals now cover the spec, plan and task table.
