@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from specsteward import config as cfg_mod
-from specsteward import graph, prereqs, trust
+from specsteward import graph, phone, prereqs, trust
 from specsteward.check import resolve_cmd
 from specsteward.hooks import SHIM
 from specsteward.init import ASK, DENY
@@ -183,6 +183,15 @@ def _remote() -> list[Finding]:
                     "each reply reaches only one of them",
                     "use phone control in one session only, started with "
                     f"`claude --channels plugin:{channel.name}@claude-plugins-official`",
+                )
+            )
+        if phone.enabled_everywhere(channel):
+            found.append(
+                Finding(
+                    WARN,
+                    f"the {channel.name} plugin is on in every Claude Code session, "
+                    "so each one runs its own copy of the bot",
+                    f"`sdd phone setup --channel {channel.name}`, then use `claude-phone`",
                 )
             )
         status = channel_status(channel)
