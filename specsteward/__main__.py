@@ -6,6 +6,7 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 from specsteward import config as cfg_mod
 from specsteward import graph, prereqs, trust
@@ -54,8 +55,18 @@ def _start_dir() -> Path:
     return Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path.cwd())
 
 
+class _Parser(argparse.ArgumentParser):
+    """Plain messages for unknown commands, without the internal hook names."""
+
+    def error(self, message: str) -> NoReturn:
+        if "invalid choice" in message and "<command>" in message:
+            given = message.split("invalid choice: ", 1)[1].split(" ", 1)[0]
+            message = f"unknown command {given}; run `sdd --help` to see the commands"
+        super().error(message)
+
+
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
+    parser = _Parser(
         prog="sdd",
         description="specsteward: spec-driven runs for Claude Code, with human gates.",
         epilog="In a project, run it as `bash .sdd/bin/sdd <command>`. Docs: "
@@ -341,7 +352,7 @@ def main(argv: list[str] | None = None) -> int:
             if cfg.graphify_auto and trusted and graph.start_background_sync(root, ENTRY):
                 print(f"building the code graph in the background ({graph.LOG_FILE.as_posix()})")
             write_shim(root, LAUNCHER)
-            print(f"ready: run `{SDD} status`")
+            print(f"next: `{SDD} doctor` to check the setup, then `/specsteward:run plan <topic>`")
             return 0
         return _run_command(args, cfg_mod.load(_start_dir()))
     except ValueError as error:

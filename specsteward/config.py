@@ -103,11 +103,15 @@ class Config:
     def spec_dir(self, spec: str) -> Path:
         if not SPEC_NUMBER.fullmatch(spec):
             raise ValueError(f"spec must be a three-digit number such as 003, got {spec!r}")
-        matches = sorted((self.root / self.specs_dir).glob(f"{spec}-*"))
-        if len(matches) != 1:
+        matches = sorted(p for p in (self.root / self.specs_dir).glob(f"{spec}-*") if p.is_dir())
+        if not matches:
             raise ValueError(
-                f"expected one {self.specs_dir}/{spec}-* directory, found {len(matches)}"
+                f"there is no spec {spec} in {self.specs_dir}/; draft one with "
+                "`/specsteward:run plan <topic>`"
             )
+        if len(matches) > 1:
+            names = ", ".join(p.name for p in matches)
+            raise ValueError(f"spec {spec} is ambiguous ({names}); renumber one of them")
         return matches[0]
 
     def status_of(self, spec_text: str) -> str:
@@ -217,7 +221,7 @@ def find_root(start: Path) -> Path:
     for directory in (start, *start.parents):
         if (directory / CONFIG_FILE).exists():
             return directory
-    raise ValueError(f"no {CONFIG_FILE} found; run `sdd init` in the repository root")
+    raise ValueError(f"no {CONFIG_FILE} here or above; set the project up with `/specsteward:init`")
 
 
 def load(start: Path) -> Config:

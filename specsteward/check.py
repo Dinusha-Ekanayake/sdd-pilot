@@ -190,8 +190,16 @@ def guard_step(cfg: Config) -> StepResult:
     return StepResult("guard", False, tuple(detail))
 
 
+NO_STEPS = (
+    f"{CONFIG_FILE} has no [[check]] steps, so the gate would prove nothing. Add your test "
+    'command, for example: [[check]] name = "tests" cmd = ["make", "test"]'
+)
+
+
 def run_all(cfg: Config) -> list[StepResult]:
     if not trust.config_trusted(cfg.root):
         return [StepResult("trust", False, (UNTRUSTED,))]
+    if not cfg.check:
+        return [StepResult("steps", False, (NO_STEPS,))]
     results = [run_step(cfg.root, step) for step in cfg.check]
     return [*results, scan_wording(cfg.root, cfg.wording), guard_step(cfg)]
