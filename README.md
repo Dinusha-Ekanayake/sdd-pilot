@@ -134,6 +134,13 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 - Quality still depends on your tests and spec. Green checks prove consistency, not correctness; the reviewer is a second opinion, not a guarantee.
 - Telegram needs [Bun](https://bun.sh) (installed automatically by `/sdd-pilot:remote`) and a running session started with `--channels`.
 
+## Uninstall
+
+1. `/plugin uninstall sdd-pilot@sdd-pilot` (and `/plugin marketplace remove sdd-pilot`).
+2. In each project: delete `.sdd/` and, if you no longer want them, `sdd.toml`, `specs/_template/`, `specs/constitution.md` and `.graphifyignore`; remove the `bash .sdd/bin/sdd` and `Edit(.sdd/**)` rules from `.claude/settings.json`.
+3. Delete `~/.claude/sdd-pilot/` (trust store and install logs).
+4. Optional, if sdd-pilot installed them: `uv tool uninstall graphifyy` (or `pipx uninstall graphifyy`), and Bun with `brew uninstall bun`, `winget uninstall Oven-sh.Bun`, or by deleting `~/.bun`.
+
 ## Development
 
 ```bash
