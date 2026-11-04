@@ -129,3 +129,14 @@ def test_doctor_flags_env_overrides_in_settings(tmp_path: Path) -> None:
     data = json.loads(settings.read_text())
     settings.write_text(json.dumps({**data, "env": {"SDD_HOME": "/tmp/x"}}))
     assert any("SDD_HOME is set" in f.what for f in run_doctor(tmp_path))
+
+
+def test_missing_deny_rules_are_named(tmp_path: Path) -> None:
+    init_project(tmp_path, "generic")
+    settings = tmp_path / ".claude" / "settings.json"
+    data = json.loads(settings.read_text())
+    data["permissions"]["deny"] = ["Edit(.sdd/**)"]
+    settings.write_text(json.dumps(data))
+    whats = [f.what for f in run_doctor(tmp_path) if f.what.startswith("deny rules missing")]
+    assert len(whats) == 1 and "Edit(.claude/settings.json)" in whats[0]
+    assert "Edit(.sdd/**)" not in whats[0]
