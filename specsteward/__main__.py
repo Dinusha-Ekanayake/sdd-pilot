@@ -68,10 +68,11 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--start", action="store_true", help="start the run right after")
     approve.add_argument("--no-branch-check", action="store_true")
     approve.add_argument("--anyway", action="store_true", help="approve despite CRITICAL findings")
+    sub.add_parser("converge", help="count a converge pass and print the next task id")
     analyze_cmd = sub.add_parser("analyze", help="check a spec, plan and tasks before approval")
     analyze_cmd.add_argument("spec")
     agent = sub.add_parser("agent", help="count a subagent run")
-    agent.add_argument("role", choices=("planner", "implementer", "reviewer", "clerk"))
+    agent.add_argument("role", choices=("planner", "implementer", "reviewer", "converger", "clerk"))
     agent.add_argument("--fresh", action="store_true")
     review = sub.add_parser("review")
     review.add_argument("task")
@@ -220,6 +221,9 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
     root, command = cfg.root, args.command
     if command == "check":
         return _check(cfg, args.task)
+    if command == "converge":
+        print(json.dumps(run_state.converge_round(cfg)))
+        return 0
     if command == "next":
         print(json.dumps(run_state.next_step(cfg)))
         return 0
@@ -239,7 +243,11 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
             raise ValueError("resolve the CRITICAL findings first (or pass --anyway)")
         print(f"spec {args.spec}: {run_state.approve(cfg, args.spec, args.via)}")
         if args.start:  # one permission prompt for "approve and go", e.g. from a phone
-            state = run_state.start(cfg, args.spec, not args.no_branch_check)
+            current = run_state.load(root)
+            if current and current["active"] and current["spec"] == args.spec:
+                state = run_state.resume(root)  # tasks were added mid-run, e.g. by converge
+            else:
+                state = run_state.start(cfg, args.spec, not args.no_branch_check)
             print(json.dumps({k: state[k] for k in ("spec", "active", "halted", "agent_runs")}))
         return 0
     if command == "status":

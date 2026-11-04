@@ -7,6 +7,7 @@
 | `agents/planner.md` (Opus) | Drafts spec, plan, tasks. Never approves |
 | `agents/implementer.md` (Sonnet) | TDD for one task group from a brief; reused across groups, restarted every few tasks |
 | `agents/reviewer.md` (Sonnet or Opus) | Reviews the diff against the brief; Opus plus an adversarial test on high-risk tasks |
+| `agents/converger.md` (Opus) | After the last task: compares the code with the spec, plan and constitution and appends the missing work as new tasks (append-only) |
 | `agents/clerk.md` (Haiku) | Changelog, dev log and PR draft |
 | `skills/run` | The orchestration loop and the phone command table |
 | `skills/init`, `skills/remote` | Setup helpers |
@@ -31,7 +32,9 @@ loop:
   sdd review ... clean   -> records the tree the review saw
   sdd done T-003-01 ...  -> ticks tasks.md only if gate and review saw the current tree
                             ([?] for human tasks)
-done: clerk, final Opus review of the branch, wait for "ship"
+done: sdd converge -> converger appends missing work? -> you approve it (approve --start
+      resumes the run) and the loop goes on; capped by max_converge_rounds
+      then clerk, final Opus review of the branch, wait for "ship"
 ```
 
 ## Stop hook

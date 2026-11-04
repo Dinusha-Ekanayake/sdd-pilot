@@ -14,7 +14,7 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/specsteward:init
 - Read only what `SDD` prints and the agents' short reports. Do not read specs, plans or
   source files yourself; the briefs and agents do that.
 - Agents are `specsteward:planner`, `specsteward:implementer`, `specsteward:reviewer`,
-  `specsteward:clerk`. If a name is not found, use the available agent whose name ends in
+  `specsteward:converger`, `specsteward:clerk`. If a name is not found, use the available agent whose name ends in
   `:planner` (and so on).
 - Run `SDD remote`. If `ready` is true, gates are also sent to the user's phone (see
   "Phone" below). Remember the `chat_ids`.
@@ -64,7 +64,15 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/specsteward:init
       when the graph is fresh or graphify is turned off).
    9. Print one line, for example `T-003-04..05 done (review clean, 1 assumption)`. If the
       phone is ready, send that line too. Loop.
-3. **Done.** Run the clerk. Then run a final reviewer on the whole branch with
+3. **Done.** Converge first: `SDD converge` returns `next_id` (or `halted` once the round
+   cap is reached: go on to the clerk). Run `specsteward:converger` with the spec number
+   and `next_id`, and run `SDD agent converger`.
+   - `CONVERGED: yes`: go on to the clerk.
+   - `CONVERGED: no`: it appended tasks. Run `SDD analyze <NNN>`, show the new tasks and
+     gaps (and send them to the phone), and wait for `approve <NNN>`. Then
+     `SDD approve <NNN> --via <terminal|telegram> --start` (one permission prompt; it
+     resumes the run) and continue the loop at step 2.
+   Then run the clerk, and a final reviewer on the whole branch with
    `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary,
    tasks waiting for sign-off (`[?]`), the final review findings and the PR draft path
    (`.sdd/pr-<NNN>.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once

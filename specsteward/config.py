@@ -62,6 +62,7 @@ class Limits:
     max_fix_attempts: int = 3
     max_agent_runs: int = 60
     restart_after_tasks: int = 4
+    max_converge_rounds: int = 2  # converge passes that may add tasks before shipping
     max_tokens: int = 0  # fresh tokens per run (input, cache writes, output); 0 = off
 
 
