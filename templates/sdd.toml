@@ -45,7 +45,7 @@ max_high = 2   # high-risk tasks per implementer run
 # installs the pinned version if missing and keeps graphify-out/ fresh in the background.
 [graphify]
 auto = true
-version = "0.9.100"
+# version = "x.y.z"  # override the graphify version this sdd-pilot release pins
 
 [brief]
 helper_files = []  # e.g. ["tests/conftest.py"]: always shown to the implementer

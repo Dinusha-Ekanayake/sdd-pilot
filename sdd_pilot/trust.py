@@ -12,6 +12,9 @@ not in the project, so agents editing project files cannot forge it.
 import hashlib
 import json
 import os
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -64,6 +67,39 @@ def _save(data: dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+LOCK_TIMEOUT = 10.0
+STALE_LOCK = 30.0
+
+
+@contextmanager
+def _transaction() -> Iterator[dict[str, Any]]:
+    """Load, let the caller change, and save the store under a lock file, so two sessions
+    (or a session and a background job) never overwrite each other's records."""
+    lock = store_path().with_suffix(".lock")
+    lock.parent.mkdir(parents=True, exist_ok=True)
+    deadline = time.monotonic() + LOCK_TIMEOUT
+    while True:
+        try:
+            os.close(os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            break
+        except FileExistsError:
+            try:
+                if time.time() - lock.stat().st_mtime > STALE_LOCK:
+                    lock.unlink(missing_ok=True)  # left behind by a killed process
+                    continue
+            except OSError:
+                continue
+            if time.monotonic() > deadline:
+                raise ValueError(f"trust store is locked ({lock}); try again") from None
+            time.sleep(0.05)
+    try:
+        data = _load()
+        yield data
+        _save(data)
+    finally:
+        lock.unlink(missing_ok=True)
+
+
 def _project(data: dict[str, Any], root: Path) -> dict[str, Any]:
     entry: dict[str, Any] = data["projects"].setdefault(_key(root), {})
     return entry
@@ -79,9 +115,8 @@ def trust_config(root: Path) -> str:
     digest = file_hash(root / CONFIG_FILE)
     if digest is None:
         raise ValueError(f"no {CONFIG_FILE} in {root}")
-    data = _load()
-    _project(data, root)["config"] = digest
-    _save(data)
+    with _transaction() as data:
+        _project(data, root)["config"] = digest
     return digest
 
 
@@ -91,9 +126,8 @@ def config_trusted(root: Path) -> bool:
 
 
 def record_approval(root: Path, spec: str, digest: str) -> None:
-    data = _load()
-    _project(data, root).setdefault("approvals", {})[spec] = digest
-    _save(data)
+    with _transaction() as data:
+        _project(data, root).setdefault("approvals", {})[spec] = digest
 
 
 def approved_hash(root: Path, spec: str) -> str | None:
@@ -103,9 +137,8 @@ def approved_hash(root: Path, spec: str) -> str | None:
 
 def record_run(root: Path, run_id: str) -> None:
     """The run ``sdd start`` began; state.json without this id is not a run."""
-    data = _load()
-    _project(data, root)["run"] = run_id
-    _save(data)
+    with _transaction() as data:
+        _project(data, root)["run"] = run_id
 
 
 def current_run(root: Path) -> str | None:
@@ -115,9 +148,8 @@ def current_run(root: Path) -> str | None:
 
 def record_ticks(root: Path, spec: str, statuses: dict[str, str]) -> None:
     """The task statuses only ``sdd start`` and ``sdd done`` may set."""
-    data = _load()
-    _project(data, root).setdefault("ticks", {})[spec] = statuses
-    _save(data)
+    with _transaction() as data:
+        _project(data, root).setdefault("ticks", {})[spec] = statuses
 
 
 def recorded_ticks(root: Path, spec: str) -> dict[str, str] | None:
@@ -127,9 +159,8 @@ def recorded_ticks(root: Path, spec: str) -> dict[str, str] | None:
 
 def record_guard(root: Path, files: tuple[str, ...]) -> None:
     """Remember the gate config files as they are now (missing files included)."""
-    data = _load()
-    _project(data, root)["guard"] = {rel: file_hash(root / rel) for rel in files}
-    _save(data)
+    with _transaction() as data:
+        _project(data, root)["guard"] = {rel: file_hash(root / rel) for rel in files}
 
 
 def changed_guard(root: Path, files: tuple[str, ...]) -> list[str]:

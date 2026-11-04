@@ -17,10 +17,22 @@ def state_dir() -> Path:
     return Path(os.environ.get("TELEGRAM_STATE_DIR") or DEFAULT_STATE_DIR)
 
 
+def _token_in(env_file: Path) -> bool:
+    """A non-empty ``TELEGRAM_BOT_TOKEN=`` line, not just an .env file that exists."""
+    try:
+        lines = env_file.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    return any(
+        line.strip().startswith("TELEGRAM_BOT_TOKEN=") and line.split("=", 1)[1].strip()
+        for line in lines
+    )
+
+
 def telegram_status(directory: Path | None = None) -> dict[str, Any]:
     directory = directory or state_dir()
     access_file = directory / "access.json"
-    token_set = bool(os.environ.get("TELEGRAM_BOT_TOKEN")) or (directory / ".env").exists()
+    token_set = bool(os.environ.get("TELEGRAM_BOT_TOKEN")) or _token_in(directory / ".env")
     if not access_file.exists():
         return {
             "channel": "telegram",
