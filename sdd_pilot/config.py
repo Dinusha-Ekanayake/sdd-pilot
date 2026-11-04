@@ -62,6 +62,7 @@ class Limits:
     max_fix_attempts: int = 3
     max_agent_runs: int = 60
     restart_after_tasks: int = 4
+    max_tokens: int = 0  # fresh tokens per run (input, cache writes, output); 0 = off
 
 
 @dataclass(frozen=True)
@@ -167,8 +168,9 @@ def _models(raw: dict[str, Any]) -> dict[str, str]:
 def from_dict(root: Path, raw: dict[str, Any]) -> Config:
     project = raw.get("project", {})
     limits = Limits(**raw.get("limits", {}))
-    if min(vars(limits).values()) < 1:
-        raise ValueError("[limits] values must be at least 1")
+    counts = {k: v for k, v in vars(limits).items() if k != "max_tokens"}
+    if min(counts.values()) < 1 or limits.max_tokens < 0:
+        raise ValueError("[limits] values must be at least 1 (max_tokens: 0 or more)")
     wording_raw = raw.get("wording", {})
     for pattern in _tuple(wording_raw.get("banned")):
         _regex(pattern, "[wording] banned")

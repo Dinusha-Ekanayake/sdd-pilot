@@ -36,6 +36,7 @@ max_review_rounds = 2
 max_fix_attempts = 3
 max_agent_runs = 60
 restart_after_tasks = 4
+max_tokens = 0          # halt after this many fresh tokens (input, cache writes, output); 0 = off
 
 [groups]
 max_size = 3   # low-risk tasks per implementer run

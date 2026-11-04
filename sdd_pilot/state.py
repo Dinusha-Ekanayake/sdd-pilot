@@ -10,7 +10,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-from sdd_pilot import trust
+from sdd_pilot import trust, usage
 from sdd_pilot.config import SPEC_NUMBER, Config
 from sdd_pilot.dashboard import write_dashboard
 from sdd_pilot.graph import ensure_ignores
@@ -196,6 +196,8 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
         "implementer_tasks": 0,
         "last_block_done": -1,
         "observed_agent_runs": 0,
+        "started_at": datetime.now(UTC).isoformat(),
+        "usage": usage.empty(),
         "gate": _fresh_gate([]),
         "tasks": {},
     }
@@ -297,6 +299,23 @@ def run_tree(cfg: Config) -> str | None:
     if state is None or not state["active"]:
         return None
     return tree(cfg.root, state)
+
+
+def observe_usage(cfg: Config, transcript_path: object) -> State | None:
+    """Add the run's new token usage from the transcripts; halt over ``max_tokens``."""
+    state = load(cfg.root)
+    if state is None or not state["active"] or state["halted"] or not transcript_path:
+        return None
+    since = datetime.fromisoformat(str(state.get("started_at") or datetime.now(UTC).isoformat()))
+    state["usage"] = usage.collect(state.get("usage") or usage.empty(), str(transcript_path), since)
+    spent = usage.fresh(state["usage"]["totals"])
+    budget = cfg.limits.max_tokens
+    if budget and spent > budget:
+        return halt(
+            cfg.root, state, f"token budget reached ({usage.short(spent)} of {usage.short(budget)})"
+        )
+    save(cfg.root, state)
+    return state
 
 
 def record_pass(cfg: Config, before: str | None = None) -> State | None:
@@ -432,6 +451,8 @@ def summary(root: Path) -> str:
         lines.append(f"Halted: {state['halted']}")
     if waiting:
         lines.append(f"Sign-off needed: {', '.join(waiting)}")
+    if state.get("usage"):
+        lines.append(f"Used: {usage.describe(state['usage']['totals'])}")
     if open_ids:
         lines.append(f"Next: {open_ids[0]}")
     assumptions = [

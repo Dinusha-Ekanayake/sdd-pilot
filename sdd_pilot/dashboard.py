@@ -8,6 +8,7 @@ import html
 from pathlib import Path
 from typing import Any
 
+from sdd_pilot import usage
 from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import DONE, HUMAN, Task, parse_tasks
 
@@ -38,6 +39,9 @@ def status_line(state: State | None, tasks: list[Task]) -> str:
         return ""
     done, waiting, total = _counts(tasks)
     parts = [f"SDD {state['spec']} ▸ {done}/{total} ✓"]
+    totals = (state.get("usage") or {}).get("totals")
+    if totals and usage.fresh(totals):
+        parts.append(f"{usage.short(usage.fresh(totals))} tok")
     if waiting:
         parts.append(f"{waiting} awaiting you")
     phase = _phase(state, tasks)
@@ -111,6 +115,8 @@ def render_dashboard(state: State, tasks: list[Task]) -> str:
         else ""
     )
     agents = max(int(state.get("agent_runs", 0)), int(state.get("observed_agent_runs", 0)))
+    totals = (state.get("usage") or {}).get("totals")
+    spent = f" · {html.escape(usage.describe(totals))}" if totals else ""
     percent = round(100 * (done + waiting) / total) if total else 0
     spec = html.escape(str(state["spec"]))
     return f"""<!doctype html>
@@ -120,7 +126,7 @@ def render_dashboard(state: State, tasks: list[Task]) -> str:
 <title>SDD {spec} run</title><style>{_CSS}</style></head>
 <body><main>
 <h1>Spec {spec} <span class="pill {phase}">{phase}</span></h1>
-<div class="muted">{html.escape(str(state.get("spec_dir", "")))} · {agents} agent runs ·
+<div class="muted">{html.escape(str(state.get("spec_dir", "")))} · {agents} agent runs{spent} ·
 refreshes every {REFRESH_SECONDS}s · read-only</div>
 <div class="card"><strong>{done}</strong> done · <strong>{waiting}</strong> awaiting your
 sign-off · <strong>{total - done - waiting}</strong> open

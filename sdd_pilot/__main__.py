@@ -119,7 +119,20 @@ def _hook(command: str) -> int:
     return 0
 
 
+def _payload() -> dict[str, object]:
+    """The hook's JSON input, or {} when there is none (a terminal, or a test)."""
+    try:
+        if sys.stdin.isatty():
+            return {}
+        data = json.load(sys.stdin)
+    except (OSError, ValueError, AttributeError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
 def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
+    if command in ("hook-stop", "hook-subagent-stop"):
+        run_state.observe_usage(cfg, _payload().get("transcript_path"))
     if command == "hook-stop":
         decision = stop_decision(cfg)
         if decision:

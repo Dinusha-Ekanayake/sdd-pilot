@@ -34,6 +34,7 @@
 - Clarify step: the planner asks up to five `[NEEDS CLARIFICATION]` questions before approval; answer with `answer <NNN>: ...`, also from the phone.
 - `sdd approve <NNN> --start`: approve and start in one permission prompt.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
+- Token meter: the run's tokens (session and subagents) in `sdd status`, the status line and the dashboard, and an optional `[limits] max_tokens` budget that halts the run.
 - Go and Rust presets.
 
 ### Changed

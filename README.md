@@ -128,7 +128,7 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 
 ## Limitations
 
-- A cost cap counts agent runs, not tokens.
+- The token budget (`[limits] max_tokens`) is checked when a subagent or the session stops, so a run can go a little past it before halting. Cached reads are reported but not counted.
 - One run per repository at a time (use a separate clone or worktree for parallel specs).
 - Trust and approvals are tied to the project's folder path: after moving or renaming the folder, run `sdd trust` and approve the spec again.
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.
