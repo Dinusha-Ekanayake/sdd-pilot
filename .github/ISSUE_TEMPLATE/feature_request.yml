@@ -1,0 +1,21 @@
+name: Feature request
+description: An idea that would make specsteward more useful.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would help
+      description: How you imagine it working. Rough ideas are fine.
+  - type: textarea
+    id: gates
+    attributes:
+      label: Effect on the gates
+      description: Would this change who approves what, or what runs without asking?
