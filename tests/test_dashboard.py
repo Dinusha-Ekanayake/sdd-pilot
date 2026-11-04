@@ -86,3 +86,21 @@ def test_cli_init_with_statusline(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     assert main(["init", "--statusline"]) == 0
     assert "status line enabled" in capsys.readouterr().out
+
+
+def test_backticked_names_render_as_code_and_status_is_marked(
+    repo: Path, cfg: config.Config
+) -> None:
+    _start(cfg)
+    tick(cfg, "T-009-02")
+    page = render_dashboard(run_state.require(repo), parse_tasks(tasks_file(repo)))
+    assert "<code>features/demo.make_demo</code>" in page
+    assert '<span class="st st-done">✓ done</span>' in page
+    assert '<span class="st st-open">open</span>' in page
+
+
+def test_unmatched_backtick_is_shown_as_written() -> None:
+    from specsteward.dashboard import _inline_code
+
+    assert _inline_code("a `b") == "a `b"
+    assert _inline_code("<x> `y`") == "&lt;x&gt; <code>y</code>"

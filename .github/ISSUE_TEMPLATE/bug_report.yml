@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in specsteward does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please do not paste tokens, `.env` files or private code.
+        Security problems go to the Security tab ("Report a vulnerability"), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `bash .sdd/bin/sdd doctor`
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: The command and its output
+      description: For example `bash .sdd/bin/sdd status` or the failing `sdd check`.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: specsteward version
+      placeholder: "0.2.0 (from /plugin or .claude-plugin/plugin.json)"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options: [Windows, macOS, Linux]
+    validations:
+      required: true

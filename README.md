@@ -1,16 +1,30 @@
 # specsteward
 
+[![CI](https://github.com/Dinusha-Ekanayake/specsteward/actions/workflows/ci.yml/badge.svg)](https://github.com/Dinusha-Ekanayake/specsteward/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Dinusha-Ekanayake/specsteward)](https://github.com/Dinusha-Ekanayake/specsteward/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
+![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)
+
 Spec-driven development on autopilot for [Claude Code](https://claude.com/claude-code).
 
-You approve a spec. Subagents then implement it task by task: a Sonnet implementer writes the code test-first, a scripted quality gate checks it, and a reviewer (Opus for risky tasks, Sonnet for routine ones) signs it off. Hard caps stop runaway loops, and you approve the gates from your phone through the official Telegram channel.
+You approve a spec. Subagents then implement it task by task: a Sonnet implementer writes the code test-first, a scripted quality gate checks it, and a reviewer (Opus for risky tasks, Sonnet for routine ones) signs it off. Hard caps stop runaway loops, the gates hold even against an agent that tries to work around them, and you approve from your phone if you like.
 
 ```
-/specsteward:run plan "rate limiter"   ->  planner (Opus) drafts spec, plan, tasks
-        you approve the spec         ->  from the terminal or "approve 003" on Telegram
-/specsteward:run 003                   ->  per task group: brief -> implementer (Sonnet)
-                                         -> gate -> reviewer (Opus if risk=high) -> tick
-        you ship                     ->  "ship 003": commit, push, PR
+/specsteward:run plan "rate limiter"  ->  planner (Opus) drafts spec, plan, tasks; asks up to 5 questions
+        you approve the spec          ->  in the terminal, or "approve 003" from your phone
+/specsteward:run 003                  ->  per task group: brief -> implementer (Sonnet)
+                                          -> gate -> reviewer (Opus if risk=high) -> tick
+        last task done                ->  converger adds any missing work as new tasks
+        you ship                      ->  "ship 003": commit, push, PR (each one asks you)
 ```
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/dashboard-dark.png">
+  <img alt="The read-only run dashboard: progress, tasks with risk and status, fix and review counts, assumptions, and tokens used" src="docs/images/dashboard-light.png" width="760">
+</picture>
+
+The status line shows the same run at a glance: `SDD 003 ▸ 3/6 ✓ · 347k tok · next T-003-03`.
 
 ## Why
 
