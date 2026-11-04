@@ -40,6 +40,7 @@
 - Clarify step: the planner asks up to five `[NEEDS CLARIFICATION]` questions before approval; answer with `answer <NNN>: ...`, also from the phone.
 - `sdd approve <NNN> --start`: approve and start in one permission prompt.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
+- Bug-fix flow: `/specsteward:run fix <bug>` drafts a fix spec from `specs/_template_fix/` (reproduction, expected, actual, root cause; the first task is a failing regression test); `sdd analyze` checks both; `fix/<NNN>-*` branches are accepted.
 - Converge (inspired by Spec Kit): after the last task, `agents/converger.md` compares the code with the spec, plan and constitution and appends missing work as new tasks; `sdd converge` counts rounds (`[limits] max_converge_rounds`) and gives the next task id; approving the appended tasks (`approve <NNN> --start`) resumes the run.
 - Verified installs: Bun's install script comes from the pinned release tag and must match its pinned sha256; graphify installs with every dependency at an exact version (checked in CI on Linux, macOS and Windows).
 - Token meter: the run's tokens (session and subagents) in `sdd status`, the status line and the dashboard, and an optional `[limits] max_tokens` budget that halts the run.
@@ -52,6 +53,7 @@
 
 ### Fixed
 - Hooks never break the session, and the launcher skips Python in projects without `sdd.toml`.
+- `sdd start` finds the branch in a repository without commits.
 - Concurrent sessions no longer overwrite each other's trust-store records (locked writes).
 - Check steps have a timeout; state is written atomically; invalid regexes fail at load time.
 - `init --specs-dir` is written to the generated `sdd.toml`.

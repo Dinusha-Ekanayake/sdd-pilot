@@ -75,6 +75,8 @@ Then:
 2. Read it. Approve with `bash .sdd/bin/sdd approve 001 --start` (a permission prompt only you can answer), or reply `approve 001` from your phone.
 3. `/specsteward:run 001` runs the tasks. It stops at the gates below.
 
+For a bug, `/specsteward:run fix "<what is broken>"` drafts a small fix spec instead: reproduction, expected and actual behaviour, root cause, and a failing regression test as the first task. It then goes through the same approval and run.
+
 Tip: run the orchestrating session on Sonnet (`/model sonnet`). Opus is still used wherever an agent or a high-risk review asks for it, because each agent sets its own model.
 
 ## What stays with you

@@ -67,16 +67,12 @@ def tasks_path(root: Path, state: State) -> Path:
 
 
 def current_branch(root: Path) -> str:
-    proc = subprocess.run(
-        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-        cwd=root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if proc.returncode != 0:
-        raise ValueError("not a git repository")
-    return proc.stdout.strip()
+    """The checked-out branch; `symbolic-ref` also works before the first commit."""
+    for args in (["symbolic-ref", "--short", "HEAD"], ["rev-parse", "--abbrev-ref", "HEAD"]):
+        proc = subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, check=False)
+        if proc.returncode == 0 and proc.stdout.strip():
+            return proc.stdout.strip()
+    raise ValueError("not a git repository")
 
 
 def approve(cfg: Config, spec: str, via: str) -> str:
@@ -220,8 +216,10 @@ def start(cfg: Config, spec: str, check_branch: bool = True) -> State:
     if problem:
         raise ValueError(problem)
     prefix = cfg.branch_prefix.format(spec=spec)
-    if check_branch and prefix and not current_branch(cfg.root).startswith(prefix):
-        raise ValueError(f"switch to a {prefix}* branch before starting the run")
+    if check_branch and prefix:
+        allowed = [p for p in (prefix, cfg.fix_branch_prefix.format(spec=spec)) if p]
+        if not any(current_branch(cfg.root).startswith(p) for p in allowed):
+            raise ValueError(f"switch to a {' or '.join(p + '*' for p in allowed)} branch first")
     tasks = parse_tasks(directory / "tasks.md")  # fail early on a malformed table
     trust.record_ticks(cfg.root, spec, {t.id: t.status for t in tasks})
     trust.record_guard(cfg.root, cfg.guard)  # baseline for the gate config check

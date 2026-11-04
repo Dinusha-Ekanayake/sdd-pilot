@@ -80,6 +80,7 @@ class Config:
     root: Path
     specs_dir: str = "specs"
     branch_prefix: str = "feature/{spec}-"
+    fix_branch_prefix: str = "fix/{spec}-"  # also accepted, for bug-fix specs
     status_regex: str = r"(\*\*Status:\*\*\s*)([^\n]*)"
     approved_word: str = "Approved"
     check: tuple[CheckStep, ...] = ()
@@ -182,6 +183,7 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         root=root,
         specs_dir=str(project.get("specs_dir", "specs")),
         branch_prefix=str(project.get("branch_prefix", "feature/{spec}-")),
+        fix_branch_prefix=str(project.get("fix_branch_prefix", "fix/{spec}-")),
         status_regex=str(project.get("status_regex", Config.status_regex)),
         approved_word=str(project.get("approved_word", "Approved")),
         check=_steps(raw.get("check", [])),
