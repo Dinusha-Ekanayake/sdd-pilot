@@ -1,5 +1,5 @@
 [project]
-name = "sdd-pilot"
+name = "specsteward"
 version = "0.2.0"
 description = "Spec-driven development on autopilot for Claude Code"
 readme = "README.md"
@@ -15,7 +15,7 @@ testpaths = ["tests"]
 addopts = "-ra --strict-markers"
 
 [tool.coverage.run]
-source = ["sdd_pilot"]
+source = ["specsteward"]
 branch = true
 
 [tool.coverage.report]
@@ -32,4 +32,4 @@ select = ["E", "F", "I", "B", "UP", "SIM", "N"]
 [tool.mypy]
 python_version = "3.11"
 strict = true
-packages = ["sdd_pilot"]
+packages = ["specsteward"]

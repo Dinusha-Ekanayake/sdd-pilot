@@ -6,9 +6,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from sdd_pilot.config import Config
-from sdd_pilot.safefs import ensure_safe
-from sdd_pilot.tasks import Task, parse_tasks
+from specsteward.config import Config
+from specsteward.safefs import ensure_safe
+from specsteward.tasks import Task, parse_tasks
 
 BRIEF_DIR = Path(".sdd") / "briefs"
 GRAPHIFY_BUDGET = 400

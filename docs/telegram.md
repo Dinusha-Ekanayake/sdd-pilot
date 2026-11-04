@@ -1,18 +1,18 @@
 # Phone control with Telegram
 
-sdd-pilot has no bot of its own. It uses Anthropic's official **Telegram channel plugin** (`telegram@claude-plugins-official`), which:
+specsteward has no bot of its own. It uses Anthropic's official **Telegram channel plugin** (`telegram@claude-plugins-official`), which:
 
 - forwards messages you send your bot into the running Claude Code session,
 - gives Claude a `reply` tool to answer or send files (specs, reports),
 - relays permission prompts to your phone with Allow/Deny buttons.
 
-So when sdd-pilot asks to approve a spec or commit, the prompt arrives on your phone and your tap is the approval.
+So when specsteward asks to approve a spec or commit, the prompt arrives on your phone and your tap is the approval.
 
 ## Setup
 
-`/sdd-pilot:remote` walks through this and checks the result. By hand:
+`/specsteward:remote` walks through this and checks the result. By hand:
 
-1. Bun, which runs the channel server: `bash .sdd/bin/sdd install bun`. `/sdd-pilot:remote` does this for you, and every session start does it in the background once phone control is configured. It installs Bun 1.4.4 (pinned) for your user only: with Homebrew on macOS or winget on Windows when available, otherwise with Bun's official script, downloaded from bun.sh to a temporary file and run with the pinned version. It never uses sudo or admin rights. On Linux the script needs `unzip`. Afterwards restart the terminal and Claude Code so `bun` is on PATH.
+1. Bun, which runs the channel server: `bash .sdd/bin/sdd install bun`. `/specsteward:remote` does this for you, and every session start does it in the background once phone control is configured. It installs Bun 1.4.4 (pinned) for your user only: with Homebrew on macOS or winget on Windows when available, otherwise with Bun's official script, downloaded from bun.sh to a temporary file and run with the pinned version. It never uses sudo or admin rights. On Linux the script needs `unzip`. Afterwards restart the terminal and Claude Code so `bun` is on PATH.
 2. In Telegram, message **@BotFather**, send `/newbot`, copy the token.
 3. In Claude Code: `/plugin install telegram@claude-plugins-official`
 4. `/telegram:configure <token>` (stored in `~/.claude/channels/telegram/.env`, never in the project)

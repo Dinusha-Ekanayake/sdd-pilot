@@ -1,22 +1,22 @@
-# sdd-pilot
+# specsteward
 
 Spec-driven development on autopilot for [Claude Code](https://claude.com/claude-code).
 
 You approve a spec. Subagents then implement it task by task: a Sonnet implementer writes the code test-first, a scripted quality gate checks it, and a reviewer (Opus for risky tasks, Sonnet for routine ones) signs it off. Hard caps stop runaway loops, and you approve the gates from your phone through the official Telegram channel.
 
 ```
-/sdd-pilot:run plan "rate limiter"   ->  planner (Opus) drafts spec, plan, tasks
+/specsteward:run plan "rate limiter"   ->  planner (Opus) drafts spec, plan, tasks
         you approve the spec         ->  from the terminal or "approve 003" on Telegram
-/sdd-pilot:run 003                   ->  per task group: brief -> implementer (Sonnet)
+/specsteward:run 003                   ->  per task group: brief -> implementer (Sonnet)
                                          -> gate -> reviewer (Opus if risk=high) -> tick
         you ship                     ->  "ship 003": commit, push, PR
 ```
 
 ## Why
 
-Long agent runs fail in predictable ways. sdd-pilot has a mitigation for each:
+Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 
-| Problem | What sdd-pilot does |
+| Problem | What specsteward does |
 |---|---|
 | Every subagent re-reads the whole spec | A generated **brief** per task group: the task rows, matching plan lines, requirements and signatures of related code, capped in size |
 | Agents read files one by one | A **graphify code graph** is installed, built and kept fresh automatically; agents query it first |
@@ -41,7 +41,7 @@ Long agent runs fail in predictable ways. sdd-pilot has a mitigation for each:
 |---|---|---|
 | [Claude Code](https://claude.com/claude-code) | everything | install it first |
 | `bash` | the CLI and hooks | built in on macOS and Linux; on Windows it comes with [Git for Windows](https://git-scm.com/download/win), which Claude Code uses too |
-| Python 3.11+ | the CLI (standard library only; nothing to `pip install`) | [python.org](https://www.python.org/downloads/), or have [uv](https://docs.astral.sh/uv/) and sdd-pilot uses a uv-managed Python automatically |
+| Python 3.11+ | the CLI (standard library only; nothing to `pip install`) | [python.org](https://www.python.org/downloads/), or have [uv](https://docs.astral.sh/uv/) and specsteward uses a uv-managed Python automatically |
 | `git` | branches, diffs, the gate fingerprint | [git-scm.com](https://git-scm.com/) |
 | graphify | the code graph agents query | **installed automatically** (pinned) with uv, pipx or pip |
 | [Bun](https://bun.sh) | phone control only (it runs the official Telegram plugin) | **installed automatically** (pinned) when you set up phone control |
@@ -50,18 +50,18 @@ Long agent runs fail in predictable ways. sdd-pilot has a mitigation for each:
 `bash .sdd/bin/sdd doctor` checks all of these and prints the fix for anything missing.
 
 ```text
-/plugin marketplace add Dinusha-Ekanayake/sdd-pilot
-/plugin install sdd-pilot@sdd-pilot
+/plugin marketplace add Dinusha-Ekanayake/specsteward
+/plugin install specsteward@specsteward
 ```
 
-Or from a local clone: `/plugin marketplace add /path/to/sdd-pilot`.
+Or from a local clone: `/plugin marketplace add /path/to/specsteward`.
 
 ## Quick start
 
 In your project:
 
 ```text
-/sdd-pilot:init
+/specsteward:init
 ```
 
 This detects your stack (Python, Node, Go, Rust or a Makefile) and builds the gate from the tools the project already uses, so `sdd.toml` normally needs no editing. It also writes spec templates under `specs/_template/`, `.gitignore` entries and permission rules, then starts building the code graph in the background. It runs `sdd doctor`, which prints a fix for anything missing, and `sdd check` once. Restart Claude Code so the permission rules load.
@@ -70,9 +70,9 @@ Optional: `bash .sdd/bin/sdd init --statusline` shows the run in Claude Code's s
 
 Then:
 
-1. `/sdd-pilot:run plan <topic>` drafts a spec (status `Draft`).
+1. `/specsteward:run plan <topic>` drafts a spec (status `Draft`).
 2. Read it. Approve with `bash .sdd/bin/sdd approve 001 --start` (a permission prompt only you can answer), or reply `approve 001` from your phone.
-3. `/sdd-pilot:run 001` runs the tasks. It stops at the gates below.
+3. `/specsteward:run 001` runs the tasks. It stops at the gates below.
 
 Tip: run the orchestrating session on Sonnet (`/model sonnet`). Opus is still used wherever an agent or a high-risk review asks for it, because each agent sets its own model.
 
@@ -88,7 +88,7 @@ Tip: run the orchestrating session on Sonnet (`/model sonnet`). Opus is still us
 
 ## Phone control (Telegram)
 
-sdd-pilot uses Anthropic's official Telegram channel plugin instead of its own bot. Run `/sdd-pilot:remote` for guided setup. See [docs/telegram.md](docs/telegram.md).
+specsteward uses Anthropic's official Telegram channel plugin instead of its own bot. Run `/specsteward:remote` for guided setup. See [docs/telegram.md](docs/telegram.md).
 
 | You send | Effect |
 |---|---|
@@ -134,14 +134,14 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.
 - Subagents start without conversation context, so briefs matter; check "BRIEF GAPS" in reports.
 - Quality still depends on your tests and spec. Green checks prove consistency, not correctness; the reviewer is a second opinion, not a guarantee.
-- Telegram needs [Bun](https://bun.sh) (installed automatically by `/sdd-pilot:remote`) and a running session started with `--channels`.
+- Telegram needs [Bun](https://bun.sh) (installed automatically by `/specsteward:remote`) and a running session started with `--channels`.
 
 ## Uninstall
 
-1. `/plugin uninstall sdd-pilot@sdd-pilot` (and `/plugin marketplace remove sdd-pilot`).
+1. `/plugin uninstall specsteward@specsteward` (and `/plugin marketplace remove specsteward`).
 2. In each project: delete `.sdd/` and, if you no longer want them, `sdd.toml`, `specs/_template/`, `specs/constitution.md` and `.graphifyignore`; remove the `bash .sdd/bin/sdd` and `Edit(.sdd/**)` rules from `.claude/settings.json`.
-3. Delete `~/.claude/sdd-pilot/` (trust store and install logs).
-4. Optional, if sdd-pilot installed them: `uv tool uninstall graphifyy` (or `pipx uninstall graphifyy`), and Bun with `brew uninstall bun`, `winget uninstall Oven-sh.Bun`, or by deleting `~/.bun`.
+3. Delete `~/.claude/specsteward/` (trust store and install logs).
+4. Optional, if specsteward installed them: `uv tool uninstall graphifyy` (or `pipx uninstall graphifyy`), and Bun with `brew uninstall bun`, `winget uninstall Oven-sh.Bun`, or by deleting `~/.bun`.
 
 ## Development
 

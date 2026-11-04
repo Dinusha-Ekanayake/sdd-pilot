@@ -5,9 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, graph
-from sdd_pilot import state as run_state
-from sdd_pilot.worktree import fingerprint
+from specsteward import config, graph
+from specsteward import state as run_state
+from specsteward.worktree import fingerprint
 
 
 def _git(root: Path, *args: str) -> None:

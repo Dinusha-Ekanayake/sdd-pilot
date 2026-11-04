@@ -1,5 +1,5 @@
 
-# sdd-pilot run state
+# specsteward run state
 .sdd/
 __pycache__/
 *.py[cod]

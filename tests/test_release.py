@@ -9,9 +9,9 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, trust
-from sdd_pilot.init import render_config
-from sdd_pilot.remote import telegram_status
+from specsteward import config, trust
+from specsteward.init import render_config
+from specsteward.remote import telegram_status
 
 ROOT = Path(__file__).resolve().parent.parent
 

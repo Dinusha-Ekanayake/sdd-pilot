@@ -115,7 +115,7 @@ Briefs are capped (40 plan lines, 12 files, 25 names per file); anything cut is 
 
 - `allow`: `bash .sdd/bin/sdd` (everything not listed under `ask`), `git status`, `git diff`, `git log`, `git rev-parse`
 - `ask`: `sdd approve`, `sdd trust`, `sdd start`, `sdd resume`, `git commit`, `git push`, `gh pr create`, `gh pr merge`
-- `deny`: `Edit(.sdd/**)`, `Edit(~/.claude/sdd-pilot/**)`
+- `deny`: `Edit(.sdd/**)`, `Edit(~/.claude/specsteward/**)`
 
 `ask` wins over `allow`, so the gates always prompt. You may drop the `git` rules if you want commits without a prompt; `sdd doctor` will only warn. The `sdd` rules are the gates and `sdd doctor` fails without them.
 

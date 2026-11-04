@@ -5,10 +5,10 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from sdd_pilot import trust
-from sdd_pilot.config import CONFIG_FILE
-from sdd_pilot.presets import detect_stack, preset_for, render_checks, render_format
-from sdd_pilot.safefs import ensure_safe
+from specsteward import trust
+from specsteward.config import CONFIG_FILE
+from specsteward.presets import detect_stack, preset_for, render_checks, render_format
+from specsteward.safefs import ensure_safe
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
 SDD = "bash .sdd/bin/sdd"
@@ -38,7 +38,7 @@ ASK = [
 # or the trust store. "Edit" rules cover every built-in file-editing tool.
 DENY = [
     "Edit(.sdd/**)",
-    "Edit(~/.claude/sdd-pilot/**)",
+    "Edit(~/.claude/specsteward/**)",
     "Edit(.claude/settings.json)",
     "Edit(.claude/settings.local.json)",
 ]
@@ -99,7 +99,7 @@ def _ensure_gitignore(root: Path) -> bool:
         return False
     prefix = "" if not text or text.endswith("\n") else "\n"
     ensure_safe(root, path)
-    path.write_text(f"{text}{prefix}\n# sdd-pilot run state\n.sdd/\n", encoding="utf-8")
+    path.write_text(f"{text}{prefix}\n# specsteward run state\n.sdd/\n", encoding="utf-8")
     return True
 
 

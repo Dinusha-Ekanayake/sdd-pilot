@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import trust
+from specsteward import trust
 
 
 def test_store_lives_in_sdd_home_not_the_project(repo: Path, trust_home: Path) -> None:
@@ -54,3 +54,19 @@ def test_corrupt_store_counts_as_untrusted(repo: Path) -> None:
     assert not trust.config_trusted(repo)
     trust.trust_config(repo)  # and it recovers
     assert trust.config_trusted(repo)
+
+
+def test_pre_rename_user_folder_moves_over(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SDD_HOME", raising=False)
+    monkeypatch.setattr(trust.Path, "home", lambda: tmp_path)
+    legacy = tmp_path / ".claude" / trust.LEGACY_DIR_NAME
+    legacy.mkdir(parents=True)
+    (legacy / trust.STORE_NAME).write_text('{"projects": {}}')
+    assert trust.store_path() == tmp_path / ".claude" / "specsteward" / trust.STORE_NAME
+    assert trust.store_path().is_file() and not legacy.exists()
+
+
+def test_fresh_install_uses_the_new_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SDD_HOME", raising=False)
+    monkeypatch.setattr(trust.Path, "home", lambda: tmp_path)
+    assert trust.user_dir() == tmp_path / ".claude" / "specsteward"

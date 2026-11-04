@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, trust
-from sdd_pilot import state as run_state
-from sdd_pilot.__main__ import main
-from sdd_pilot.hooks import format_file, guard_decision, stop_decision, write_shim
-from sdd_pilot.init import ASK, DENY, init_project, render_config
-from sdd_pilot.remote import telegram_status
-from sdd_pilot.tasks import parse_tasks
+from specsteward import config, trust
+from specsteward import state as run_state
+from specsteward.__main__ import main
+from specsteward.hooks import format_file, guard_decision, stop_decision, write_shim
+from specsteward.init import ASK, DENY, init_project, render_config
+from specsteward.remote import telegram_status
+from specsteward.tasks import parse_tasks
 
 from .conftest import tasks_file, tick, write_config
 
@@ -331,9 +331,9 @@ def test_hook_errors_never_break_the_session(
     def broken(cfg: config.Config) -> None:
         raise KeyError("boom")
 
-    monkeypatch.setattr("sdd_pilot.__main__.stop_decision", broken)
+    monkeypatch.setattr("specsteward.__main__.stop_decision", broken)
     assert main(["hook-stop"]) == 0
-    assert "sdd-pilot hook-stop: KeyError" in capsys.readouterr().err
+    assert "specsteward hook-stop: KeyError" in capsys.readouterr().err
 
 
 def test_format_hook_ignores_files_outside_the_project(

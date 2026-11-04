@@ -13,7 +13,7 @@ from typing import Any
 
 CONFIG_FILE = "sdd.toml"
 RISKS = ("low", "high", "human")
-GRAPHIFY_VERSION = "0.9.100"  # pinned; see sdd_pilot/graph.py
+GRAPHIFY_VERSION = "0.9.100"  # pinned; see specsteward/graph.py
 SPEC_NUMBER = re.compile(r"\d{3}")
 # Files that configure the gate itself. Changing one during a run fails `sdd check` until
 # the user looks at it and runs `sdd trust`, so an agent cannot quietly weaken the gate.

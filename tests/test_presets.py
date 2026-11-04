@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
-from sdd_pilot.check import project_python, resolve_cmd
-from sdd_pilot.init import render_config
-from sdd_pilot.presets import detect_stack, preset_for
+from specsteward import config
+from specsteward.check import project_python, resolve_cmd
+from specsteward.init import render_config
+from specsteward.presets import detect_stack, preset_for
 
 
 def _names(root: Path, preset: str = "auto") -> list[str]:

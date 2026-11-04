@@ -16,8 +16,8 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from sdd_pilot.config import GRAPHIFY_VERSION as DEFAULT_VERSION
-from sdd_pilot.safefs import ensure_safe
+from specsteward.config import GRAPHIFY_VERSION as DEFAULT_VERSION
+from specsteward.safefs import ensure_safe
 
 PACKAGE = "graphifyy"
 OUT_DIR = "graphify-out"
@@ -29,7 +29,7 @@ INSTALL_TIMEOUT = 10 * 60
 IGNORE_FILE = ".graphifyignore"
 # Never index run state, environments, build output or raw data.
 IGNORE_DEFAULTS = """\
-# Written by sdd-pilot. graphify skips these; add your own data folders.
+# Written by specsteward. graphify skips these; add your own data folders.
 .sdd/
 .git/
 .venv/

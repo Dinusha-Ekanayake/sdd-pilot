@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config, usage
-from sdd_pilot import state as run_state
-from sdd_pilot.dashboard import status_line
-from sdd_pilot.tasks import parse_tasks
+from specsteward import config, usage
+from specsteward import state as run_state
+from specsteward.dashboard import status_line
+from specsteward.tasks import parse_tasks
 
 from .conftest import tasks_file, write_config
 
@@ -114,7 +114,7 @@ def test_stop_hook_feeds_the_meter(
 ) -> None:
     import io
 
-    from sdd_pilot.__main__ import main
+    from specsteward.__main__ import main
 
     run_state.start(cfg, "009", check_branch=False)
     transcript = _session(tmp_path)

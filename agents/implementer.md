@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Implements one group of spec tasks (T-NNN-XX) from a brief in .sdd/briefs/, test first, until the sdd-pilot quality gate passes. Used by /sdd-pilot:run and reused across tasks with SendMessage.
+description: Implements one group of spec tasks (T-NNN-XX) from a brief in .sdd/briefs/, test first, until the specsteward quality gate passes. Used by /specsteward:run and reused across tasks with SendMessage.
 tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
 model: sonnet
 ---

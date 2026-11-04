@@ -1,8 +1,8 @@
 """Prerequisites outside Python: Bun for phone control, plus checks for the rest.
 
 Bun runs the official Telegram channel plugin's server (its ``.mcp.json`` starts ``bun``),
-so it is needed only for phone control. sdd-pilot installs it automatically when phone
-control is set up (``/sdd-pilot:remote``) or already configured, never otherwise:
+so it is needed only for phone control. specsteward installs it automatically when phone
+control is set up (``/specsteward:remote``) or already configured, never otherwise:
 
 - the OS package manager when there is one (Homebrew on macOS, winget on Windows);
 - else Bun's official install script, downloaded over HTTPS from bun.sh into a temporary
@@ -20,7 +20,8 @@ import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
-from sdd_pilot.remote import state_dir
+from specsteward.remote import state_dir
+from specsteward.trust import user_dir
 
 BUN_VERSION = "1.4.4"  # pinned; bump deliberately after checking the release notes
 SCRIPT_UNIX = "https://bun.sh/install"
@@ -33,7 +34,7 @@ Fetcher = Callable[[str, Path], None]
 
 
 def _home_dir() -> Path:
-    return Path.home() / ".claude" / "sdd-pilot"
+    return user_dir()
 
 
 def log_path() -> Path:

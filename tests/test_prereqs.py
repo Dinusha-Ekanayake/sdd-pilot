@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import prereqs
-from sdd_pilot.__main__ import main
-from sdd_pilot.doctor import FAIL, run_doctor
-from sdd_pilot.init import init_project
+from specsteward import prereqs
+from specsteward.__main__ import main
+from specsteward.doctor import FAIL, run_doctor
+from specsteward.init import init_project
 
 
 @pytest.fixture

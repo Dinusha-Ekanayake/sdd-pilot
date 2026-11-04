@@ -1,4 +1,4 @@
-# sdd-pilot configuration (Python preset). See docs/configuration.md in the sdd-pilot repo.
+# specsteward configuration (Python preset). See docs/configuration.md in the specsteward repo.
 
 [project]
 specs_dir = "specs"
@@ -40,7 +40,7 @@ keep = '^(FAILED|ERROR)|Required test coverage|\.py:\d+: '
 # "not", "never" or "no" is allowed. Mark a line "sdd: allow-wording" to allow it.
 [wording]
 banned = []
-scan = ["sdd_pilot", "skills", "agents"]
+scan = ["specsteward", "skills", "agents"]
 
 # Which model reviews which risk. Implementer is Sonnet, planner Opus, clerk Haiku.
 [models]

@@ -13,8 +13,8 @@ bash .sdd/bin/sdd check                                 # lint, format, types, t
 - Add a test for every change; the launcher, hooks and CLI have end-to-end tests that run through `bash`.
 - Keep shell scripts LF (`.gitattributes` enforces it) and presets ASCII-only.
 - Commit messages: Conventional Commits (`feat|fix|perf|docs|test|ci|chore: summary`).
-- Pinned tools: `BUN_VERSION` (`sdd_pilot/prereqs.py`) and `GRAPHIFY_VERSION`
-  (`sdd_pilot/config.py`). Bump them deliberately, after reading the release notes, in a
+- Pinned tools: `BUN_VERSION` (`specsteward/prereqs.py`) and `GRAPHIFY_VERSION`
+  (`specsteward/config.py`). Bump them deliberately, after reading the release notes, in a
   commit of their own.
 - Releases: bump `.claude-plugin/plugin.json` and `pyproject.toml` together and date the
   `CHANGELOG.md` section; a test checks that they agree.
