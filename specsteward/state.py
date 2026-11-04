@@ -568,9 +568,12 @@ def signoff(cfg: Config, task_id: str) -> State:
     """The user's sign-off on a human task: ``[?]`` becomes ``[x]``.
 
     Keep it behind an ``ask`` rule: it is the user's judgement, and editing tasks.md by
-    hand instead would halt the run as a table changed outside ``sdd done``.
+    hand instead would halt the run as a table changed outside ``sdd done``. Works after
+    the run was stopped too: a human task can be judged after the code shipped.
     """
-    state = require(cfg.root)
+    state = load(cfg.root)
+    if state is None:
+        raise ValueError("no specsteward run in this project to sign off")
     problem = integrity_problem(cfg, state)
     if problem:
         raise ValueError(problem)
