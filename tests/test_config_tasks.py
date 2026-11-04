@@ -13,7 +13,7 @@ from .conftest import tasks_file
 def test_defaults_without_sections(cfg: config.Config) -> None:
     assert cfg.specs_dir == "specs"
     assert cfg.models == {"low": "sonnet", "high": "opus", "human": "opus"}
-    assert cfg.check == ()
+    assert config.from_dict(cfg.root, {}).check == ()  # no steps unless configured
     assert cfg.limits.max_fix_attempts == 3
 
 
@@ -24,7 +24,7 @@ def test_load_finds_config_in_parent(repo: Path) -> None:
 
 
 def test_missing_config_raises(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="sdd init"):
+    with pytest.raises(ValueError, match="/specsteward:init"):
         config.load(tmp_path)
 
 
@@ -70,7 +70,7 @@ def test_status_and_approval(cfg: config.Config) -> None:
 
 def test_spec_dir_requires_exactly_one_match(cfg: config.Config) -> None:
     assert cfg.spec_dir("009").name == "009-demo"
-    with pytest.raises(ValueError, match="found 0"):
+    with pytest.raises(ValueError, match="there is no spec 777"):
         cfg.spec_dir("777")
 
 
@@ -151,3 +151,9 @@ def test_set_status_refuses_when_status_is_not_the_last_column(tmp_path: Path) -
     with pytest.raises(ValueError, match="last column"):
         set_status(path, "T-001-01", "[x]")
     assert "[ ]" in path.read_text()
+
+
+def test_two_folders_for_one_spec_number_are_named(repo: Path, cfg: config.Config) -> None:
+    (repo / "specs" / "009-other").mkdir()
+    with pytest.raises(ValueError, match="009-demo, 009-other"):
+        cfg.spec_dir("009")

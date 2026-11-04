@@ -364,3 +364,21 @@ def test_init_explains_the_permission_rules_in_words(tmp_path: Path) -> None:
     assert any(line.startswith("permission rules (asks you first): ") for line in lines)
     assert any(line.startswith("permission rules (blocked): Edit(.sdd/**)") for line in lines)
     assert not any(line.startswith("permission deny") for line in lines)
+
+
+def test_unknown_command_does_not_list_internal_hooks(capsys: pytest.CaptureFixture[str]) -> None:
+    with pytest.raises(SystemExit):
+        main(["frobnicate"])
+    err = capsys.readouterr().err
+    assert "unknown command 'frobnicate'; run `sdd --help`" in err and "hook-" not in err
+
+
+def test_an_empty_gate_fails_and_init_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert main(["init"]) == 0
+    out = capsys.readouterr().out
+    assert "add your test command under [[check]]" in out and "/specsteward:run plan" in out
+    assert main(["check"]) == 1
+    assert "no [[check]] steps, so the gate would prove nothing" in capsys.readouterr().out

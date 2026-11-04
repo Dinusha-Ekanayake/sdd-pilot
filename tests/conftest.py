@@ -1,3 +1,5 @@
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -22,6 +24,11 @@ SPEC = """\
 - REQ-009-01: Features use only past rows.
 - [ ] AC-01: tests pass.
 """
+# A gate with one trivial step: a gate without steps fails by design.
+BASE_CONFIG = (
+    "[brief]\ngraphify = false\n\n"
+    f'[[check]]\nname = "tests"\ncmd = [{json.dumps(sys.executable)}, "-c", "pass"]\n'
+)
 PLAN = "| `src/demo/demo.py` | `make_demo(df)` builds features |\nunrelated line\n"
 
 
@@ -48,7 +55,7 @@ def repo(tmp_path: Path) -> Path:
     (spec / "tasks.md").write_text(TASKS, encoding="utf-8")
     (spec / "spec.md").write_text(SPEC, encoding="utf-8")
     (spec / "plan.md").write_text(PLAN, encoding="utf-8")
-    (tmp_path / "sdd.toml").write_text("[brief]\ngraphify = false\n", encoding="utf-8")
+    (tmp_path / "sdd.toml").write_text(BASE_CONFIG, encoding="utf-8")
     trust.trust_config(tmp_path)
     from specsteward.state import approval_digest
 

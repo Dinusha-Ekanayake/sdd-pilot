@@ -30,12 +30,35 @@ def test_without_config_doctor_points_to_init(tmp_path: Path) -> None:
     assert found[-1].level == FAIL and "init" in found[-1].fix
 
 
-def test_fresh_init_is_healthy(tmp_path: Path) -> None:
+def _with_a_check(root: Path) -> None:
+    write_config(root, f'[[check]]\nname = "tests"\ncmd = [{json.dumps(sys.executable)}]\n')
+
+
+def test_fresh_init_is_healthy_once_it_has_a_check(tmp_path: Path) -> None:
     init_project(tmp_path, "generic")
     levels = _levels(run_doctor(tmp_path))
+    assert levels["the gate has no [[check]] steps, so it proves nothing"] == FAIL
+    _with_a_check(tmp_path)
+    levels = _levels(run_doctor(tmp_path))
     assert FAIL not in levels.values()
-    assert levels["no [[check]] steps"] == WARN
     assert levels["approve, trust, start and resume prompt you"] == OK
+
+
+def test_a_brand_new_repository_is_recognised(tmp_path: Path) -> None:
+    import subprocess
+
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=tmp_path, check=True)
+    init_project(tmp_path, "generic")
+    assert _levels(run_doctor(tmp_path))["git branch main"] == OK  # no commits yet
+
+
+def test_a_missing_tool_is_reported_once(repo: Path) -> None:
+    steps = "".join(
+        f'[[check]]\nname = "{name}"\ncmd = ["no-such-tool-xyz"]\n' for name in ("lint", "tests")
+    )
+    write_config(repo, steps)
+    fails = [f.what for f in run_doctor(repo) if f.level == FAIL and "not found" in f.what]
+    assert fails == ["no-such-tool-xyz not found (needed by 'lint', 'tests')"]
 
 
 def test_untrusted_config_and_missing_tools_fail(repo: Path) -> None:
@@ -62,6 +85,7 @@ def test_relaxed_git_rules_only_warn(tmp_path: Path) -> None:
     data = json.loads(settings.read_text())
     data["permissions"]["ask"].remove("Bash(git commit:*)")
     settings.write_text(json.dumps(data))
+    _with_a_check(tmp_path)
     found = run_doctor(tmp_path)
     assert any(f.level == WARN and "git commit" in f.what for f in found)
     assert FAIL not in {f.level for f in found}
@@ -84,6 +108,7 @@ def test_format_and_cli(
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
     assert main(["doctor"]) == 1  # no sdd.toml
     init_project(tmp_path, "generic")
+    _with_a_check(tmp_path)
     capsys.readouterr()
     assert main(["doctor", "--json"]) == 0
     assert json.loads(capsys.readouterr().out)[0]["level"] == OK

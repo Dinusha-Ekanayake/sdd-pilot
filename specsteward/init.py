@@ -127,6 +127,8 @@ def init_project(
         else:
             trust.trust_config(root)  # a new file the user asked for starts trusted
             done.append(f"wrote {CONFIG_FILE} ({stack} project; checks: {steps}; trusted)")
+            if steps == "none found":
+                done.append(f"add your test command under [[check]] in {CONFIG_FILE} before a run")
     constitution = root / specs_dir / "constitution.md"
     if not constitution.exists():
         ensure_safe(root, constitution)

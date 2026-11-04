@@ -59,7 +59,9 @@ def save(root: Path, state: State) -> None:
 def require(root: Path) -> State:
     state = load(root)
     if state is None or not state["active"]:
-        raise ValueError("no active SDD run; start one with `sdd start <NNN>`")
+        raise ValueError(
+            "no active specsteward run; approve and start one with `sdd approve <NNN> --start`"
+        )
     return state
 
 

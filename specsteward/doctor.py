@@ -2,7 +2,6 @@
 
 import json
 import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +13,7 @@ from specsteward.check import resolve_cmd
 from specsteward.hooks import SHIM
 from specsteward.init import ASK, DENY
 from specsteward.remote import CHANNELS, channel_status, configured
+from specsteward.state import current_branch
 
 OK, WARN, FAIL = "ok", "warn", "FAIL"
 MIN_PYTHON = (3, 11)
@@ -34,19 +34,13 @@ def _python() -> Finding:
 
 
 def _git(root: Path) -> Finding:
-    try:
-        proc = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
+    if shutil.which("git") is None:
         return Finding(WARN, "git not found", "install git; branch checks and diffs need it")
-    if proc.returncode != 0:
+    try:
+        branch = current_branch(root)  # also works before the first commit
+    except ValueError:
         return Finding(WARN, "not a git repository", "run `git init`; reviews read `git diff`")
-    return Finding(OK, f"git branch {proc.stdout.strip()}")
+    return Finding(OK, f"git branch {branch}")
 
 
 def _checks(cfg: cfg_mod.Config) -> list[Finding]:
@@ -54,16 +48,19 @@ def _checks(cfg: cfg_mod.Config) -> list[Finding]:
         return [Finding(FAIL, "sdd.toml is not trusted", "review sdd.toml, then `sdd trust`")]
     found = [Finding(OK, "sdd.toml is trusted")]
     if not cfg.check:
-        found.append(Finding(WARN, "no [[check]] steps", "add lint, type and test commands"))
+        fix = 'add your test command to sdd.toml: [[check]] name = "tests" cmd = [...]'
+        found.append(Finding(FAIL, "the gate has no [[check]] steps, so it proves nothing", fix))
+    missing: dict[str, list[str]] = {}
     for step in cfg.check:
         try:
             exe = Path(resolve_cmd(step.cmd, cfg.root)[0]).name
         except FileNotFoundError as error:
-            found.append(
-                Finding(FAIL, f"check {step.name!r}: {error} not found", "install it or fix cmd")
-            )
+            missing.setdefault(str(error), []).append(step.name)
         else:
             found.append(Finding(OK, f"check {step.name!r} runs {exe}"))
+    for tool, steps in missing.items():
+        needed = ", ".join(repr(s) for s in steps)
+        found.append(Finding(FAIL, f"{tool} not found (needed by {needed})", f"install {tool}"))
     return found
 
 
