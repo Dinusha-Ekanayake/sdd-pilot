@@ -55,4 +55,5 @@ jobs:
         run: |
           version=$(python -c "import sys; sys.path.insert(0, '.'); from specsteward.config import GRAPHIFY_VERSION; print(GRAPHIFY_VERSION)")
           uv tool install "graphifyy==$version" -c specsteward/graphify-constraints.txt
-          graphify --help >/dev/null
+          # uv's tool folder is not on PATH on every runner (Windows); specsteward looks there too.
+          "$(uv tool dir --bin)/graphify" --help >/dev/null
