@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Approvals, trusted configs and the gate-config baseline no longer break when git converts line endings (CRLF and LF, on Windows or in teams mixing systems): fingerprints use normalized line endings, and records made by 0.2.0 still count.
+
 ## 0.2.0 - 2026-11-04
 
 ### Upgrading from 0.1.0

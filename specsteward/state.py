@@ -196,16 +196,21 @@ def converge_round(cfg: Config) -> dict[str, Any]:
     }
 
 
-def approval_digest(directory: Path) -> str:
+def approval_digest(directory: Path, crlf: bool = False) -> str:
     """What the user approves: spec.md, plan.md and the task definitions.
 
     Task statuses are left out, so ticking does not void the approval; ticks are checked
-    separately (see ``tick_problem``).
+    separately (see ``tick_problem``). Line endings are normalized, so git's CRLF/LF
+    conversion does not void it; ``crlf`` gives the digest that versions before 0.2.1
+    recorded for files with Windows line endings.
     """
     digest = hashlib.sha256()
     for name in ("spec.md", "plan.md"):
         path = directory / name
-        digest.update(name.encode() + b"\0" + (path.read_bytes() if path.is_file() else b""))
+        data = trust.normalized(path.read_bytes()) if path.is_file() else b""
+        if crlf:
+            data = data.replace(b"\n", b"\r\n")
+        digest.update(name.encode() + b"\0" + data)
     try:
         rows = parse_tasks(directory / "tasks.md")
     except (OSError, ValueError):
@@ -242,7 +247,7 @@ def approval_problem(cfg: Config, spec: str, directory: Path) -> str | None:
     recorded = trust.approved_hash(cfg.root, spec)
     if recorded is None:
         return f"{name} says approved but has no recorded approval; run `sdd approve {spec}`"
-    if recorded != approval_digest(directory):
+    if recorded not in (approval_digest(directory), approval_digest(directory, crlf=True)):
         return (
             f"{directory.name} (spec, plan or task table) changed after it was approved; "
             "the user must approve it again"

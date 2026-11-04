@@ -158,3 +158,52 @@ def test_state_with_a_bad_spec_is_ignored(repo: Path, cfg: config.Config) -> Non
     state = json.loads(path.read_text())
     path.write_text(json.dumps({**state, "spec": "009; run rm -rf"}))
     assert run_state.load(repo) is None
+
+
+# --- git's CRLF/LF conversion must not void approvals, trust or the guard baseline ---------
+
+
+def _flip(path: Path, to_crlf: bool) -> None:
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    path.write_bytes(data.replace(b"\n", b"\r\n") if to_crlf else data)
+
+
+@pytest.mark.parametrize("to_crlf", [True, False])
+def test_line_ending_conversion_keeps_the_approval(repo: Path, to_crlf: bool) -> None:
+    spec_dir = repo / "specs" / "009-demo"
+    for name in ("spec.md", "plan.md", "tasks.md"):
+        _flip(spec_dir / name, not to_crlf)
+    cfg = config.load(repo)
+    run_state.approve(cfg, "009", via="terminal")
+    for name in ("spec.md", "plan.md", "tasks.md"):
+        _flip(spec_dir / name, to_crlf)  # what a checkout on another system does
+    assert run_state.approval_problem(cfg, "009", spec_dir) is None
+
+
+def test_records_from_before_the_fix_still_count(repo: Path) -> None:
+    import hashlib
+
+    from specsteward import trust
+
+    spec_dir = repo / "specs" / "009-demo"
+    _flip(spec_dir / "spec.md", True)
+    cfg = config.load(repo)
+    legacy = run_state.approval_digest(spec_dir, crlf=True)  # raw CRLF bytes, as 0.2.0 stored
+    trust.record_approval(repo, "009", legacy)
+    _flip(spec_dir / "spec.md", False)  # git then stored the file with LF
+    assert run_state.approval_problem(cfg, "009", spec_dir) is None
+    raw = hashlib.sha256((repo / "sdd.toml").read_bytes()).hexdigest()
+    assert raw in trust.file_hashes(repo / "sdd.toml")
+
+
+def test_line_ending_conversion_keeps_trust_and_the_guard(repo: Path) -> None:
+    from specsteward import trust
+
+    (repo / "pyproject.toml").write_text("[tool.x]\na = 1\n")
+    trust.record_guard(repo, ("pyproject.toml",))
+    _flip(repo / "sdd.toml", True)
+    _flip(repo / "pyproject.toml", True)
+    assert trust.config_trusted(repo)
+    assert trust.changed_guard(repo, ("pyproject.toml",)) == []
+    (repo / "sdd.toml").write_text("# a real change\n")
+    assert not trust.config_trusted(repo)  # content changes still count

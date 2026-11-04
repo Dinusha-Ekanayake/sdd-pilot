@@ -54,11 +54,26 @@ def store_path() -> Path:
     return base / STORE_NAME
 
 
+def normalized(data: bytes) -> bytes:
+    """Text with LF line endings: git's CRLF/LF conversion (Windows, or teams mixing
+    systems) must not void an approval or a trust record."""
+    return data.replace(b"\r\n", b"\n")
+
+
 def file_hash(path: Path) -> str | None:
-    """sha256 of the file's bytes, or None when it does not exist."""
+    """sha256 of the file with LF line endings, or None when it does not exist."""
     if not path.is_file():
         return None
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(normalized(path.read_bytes())).hexdigest()
+
+
+def file_hashes(path: Path) -> set[str | None]:
+    """Every fingerprint the file may have been recorded under: the current one, and the
+    raw-bytes ones that versions before 0.2.1 stored (with LF or CRLF line endings)."""
+    if not path.is_file():
+        return {None}
+    lf = normalized(path.read_bytes())
+    return {hashlib.sha256(data).hexdigest() for data in (lf, lf.replace(b"\n", b"\r\n"))}
 
 
 def _key(root: Path) -> str:
@@ -202,7 +217,8 @@ def trust_config(root: Path) -> str:
 
 def config_trusted(root: Path) -> bool:
     digest = file_hash(root / CONFIG_FILE)
-    return digest is not None and digest in _trusted_configs(_read(repo_root(root)))
+    trusted = _trusted_configs(_read(repo_root(root)))
+    return digest is not None and any(h in trusted for h in file_hashes(root / CONFIG_FILE))
 
 
 def record_approval(root: Path, spec: str, digest: str) -> None:
@@ -248,4 +264,4 @@ def changed_guard(root: Path, files: tuple[str, ...]) -> list[str]:
     baseline = _read(root).get("guard")
     if baseline is None:
         return []
-    return [rel for rel in files if baseline.get(rel) != file_hash(root / rel)]
+    return [rel for rel in files if baseline.get(rel) not in file_hashes(root / rel)]
