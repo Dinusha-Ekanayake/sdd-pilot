@@ -7,7 +7,7 @@
 - Writes `.sdd/` (git-ignored), merges permission rules into `.claude/settings.json`, and keeps a trust store in `~/.claude/specsteward/trust.json` (or `$SDD_HOME`).
 - With `[graphify] auto = true` (the default) and a **trusted** `sdd.toml`, installs a pinned version of the `graphifyy` package with `uv tool`, `pipx` or `pip --user` (run from your home directory, in isolated mode), and builds a local code graph in `graphify-out/`. Set `auto = false` to turn this off.
 
-- Once phone control is configured (a Telegram token or pairing exists), installs Bun for your user: Homebrew or winget when available, else Bun's official script downloaded over HTTPS from bun.sh and run with a pinned version, from your home directory, without admin rights. It does not install Bun for anyone who has not set up phone control.
+- Once phone control is configured (a Telegram or Discord token or pairing exists), installs Bun for your user: Homebrew or winget when available, else Bun's official script from the pinned release tag, checked against its pinned sha256 and run with the pinned version, from your home directory, without admin rights. It does not install Bun for anyone who has not set up phone control.
 
 It never commits, pushes, opens a PR or reads secrets on its own.
 
@@ -29,7 +29,7 @@ Check commands with a path separator are looked up in the repository; bare names
 | Run state and settings | A PreToolUse hook denies Edit, Write, MultiEdit and NotebookEdit on `.sdd/`, the trust store and `.claude/settings*.json` (compared by file identity, so aliases are caught); `init` adds matching deny rules. State without the run id `sdd start` recorded is ignored |
 | Repository-shipped files | `{python}` never resolves to a committed virtual environment. specsteward refuses to write through symlinks below the project root |
 | Caps | Failures are recorded against the group in flight by default, and a SubagentStop hook counts subagents, so the agent cap does not depend on the model reporting them |
-| Commit, push, PR | `git commit`, `git push`, `gh pr create`, `gh pr merge` are `ask` rules. Over Telegram the prompt is relayed to the paired chat |
+| Commit, push, PR | `git commit`, `git push`, `gh pr create`, `gh pr merge` are `ask` rules. Over a phone channel the prompt is relayed to the paired chat |
 
 `sdd doctor` fails when the `sdd` gate rules are missing or when `defaultMode` is `bypassPermissions`, since prompts do not appear in that mode, and warns when sandboxing is off or `SDD_HOME`/`SDD_PYTHON` are set in Claude settings.
 
@@ -43,13 +43,13 @@ Check commands with a path separator are looked up in the repository; bare names
 - graphify and each of its dependencies are pinned to exact versions (`specsteward/graphify-constraints.txt`); PyPI never replaces a published version's files. Wheels are not hash-pinned, because they differ per platform. A version chosen in `sdd.toml` installs without the lock.
 - Bun's install script is fetched from the pinned release tag and checked against its pinned sha256 before it runs; the script then downloads Bun's release archive over HTTPS.
 
-## Telegram
+## Phone channels (Telegram, Discord)
 
-- Pair only your own account and set `/telegram:access policy allowlist`. `sdd remote` warns if there is more than one allowed user, or groups.
-- The bot token lives in `~/.claude/channels/telegram/.env`. Do not put it in the repository.
+- Pair only your own account and set `/<channel>:access policy allowlist`. `sdd remote` warns if there is more than one allowed user, or groups.
+- The bot token lives in `~/.claude/channels/<channel>/.env`. Do not put it in the repository.
 - Messages from the phone are treated as the user's words, but gates move only on the exact commands in the table, and the final decision is the permission prompt.
-- The orchestrator is told never to send secrets or `.env` files to the chat. Spec and plan files may be sent; do not use phone control for specs you cannot share with Telegram.
-- Anyone who gets control of your Telegram account or bot token can message your session. Use Telegram two-step verification, and revoke the token with BotFather if lost.
+- The orchestrator is told never to send secrets or `.env` files to the chat. Spec and plan files may be sent; do not use phone control for specs you cannot share with that service.
+- Anyone who gets control of your chat account or bot token can message your session. Use two-step verification, and revoke the token (BotFather, or the Discord Developer Portal) if it leaks.
 
 ## Prompt injection
 

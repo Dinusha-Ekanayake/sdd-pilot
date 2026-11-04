@@ -40,6 +40,7 @@
 - Clarify step: the planner asks up to five `[NEEDS CLARIFICATION]` questions before approval; answer with `answer <NNN>: ...`, also from the phone.
 - `sdd approve <NNN> --start`: approve and start in one permission prompt.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
+- Phone control over Discord as well as Telegram, through Anthropic's official channel plugins: `sdd remote` reports the ready channel (and others set up), `sdd doctor` checks each, Bun is installed for either; `docs/telegram.md` is now `docs/phone.md`.
 - Parallel runs: `sdd worktree <NNN>` creates a sibling git worktree on the spec's branch (copying `sdd.toml` and the spec if they are not committed); trust and approvals are kept per repository, so worktrees share them, while each worktree has its own run. Several trusted `sdd.toml` versions can coexist.
 - Bug-fix flow: `/specsteward:run fix <bug>` drafts a fix spec from `specs/_template_fix/` (reproduction, expected, actual, root cause; the first task is a failing regression test); `sdd analyze` checks both; `fix/<NNN>-*` branches are accepted.
 - Converge (inspired by Spec Kit): after the last task, `agents/converger.md` compares the code with the spec, plan and constitution and appends missing work as new tasks; `sdd converge` counts rounds (`[limits] max_converge_rounds`) and gives the next task id; approving the appended tasks (`approve <NNN> --start`) resumes the run.

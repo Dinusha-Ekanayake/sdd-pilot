@@ -1,6 +1,6 @@
 ---
 name: run
-description: Plan a feature or a bug fix and run an approved spec to completion with subagents (Sonnet implementer, risk-based reviewer with Opus for high risk, Haiku clerk), task briefs, a scripted quality gate, hard caps and human gates that can be approved from a phone via the Telegram channel. Use for "/specsteward:run <NNN>", "/specsteward:run plan <topic>", "/specsteward:run fix <bug>", or phone commands like "approve 003", "status", "resume", "ship 003".
+description: Plan a feature or a bug fix and run an approved spec to completion with subagents (Sonnet implementer, risk-based reviewer with Opus for high risk, Haiku clerk), task briefs, a scripted quality gate, hard caps and human gates that can be approved from a phone via the Telegram or Discord channel. Use for "/specsteward:run <NNN>", "/specsteward:run plan <topic>", "/specsteward:run fix <bug>", or phone commands like "approve 003", "status", "resume", "ship 003".
 ---
 
 # specsteward run
@@ -76,7 +76,7 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    - `CONVERGED: yes`: go on to the clerk.
    - `CONVERGED: no`: it appended tasks. Run `SDD analyze <NNN>`, show the new tasks and
      gaps (and send them to the phone), and wait for `approve <NNN>`. Then
-     `SDD approve <NNN> --via <terminal|telegram> --start` (one permission prompt; it
+     `SDD approve <NNN> --via <terminal|telegram|discord> --start` (one permission prompt; it
      resumes the run) and continue the loop at step 2.
    Then run the clerk, and a final reviewer on the whole branch with
    `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary,
@@ -91,17 +91,17 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
 Do the preparation (run the script, produce the outputs, draft the document), but leave
 the judgement to the user. `SDD done` marks them `[?]` for the user's sign-off.
 
-## Phone (Telegram channel)
-Messages from the phone arrive as `<channel source="telegram" chat_id=... ...>`. Reply
-with the Telegram channel's `reply` tool and that `chat_id`. To send something
-unprompted, use a chat ID from `SDD remote`. Attach files with absolute paths.
+## Phone (Telegram or Discord channel)
+Messages from the phone arrive as `<channel source="telegram" chat_id=... ...>` or
+`<channel source="discord" ...>`. Reply with that channel's `reply` tool and that
+`chat_id`. To send something unprompted, use the `channel` and a chat ID from `SDD remote`. Attach files with absolute paths.
 
 Recognised commands (case-insensitive):
 
 | Message | Action |
 |---|---|
 | `status` | Reply with `SDD status`. |
-| `approve <NNN>` | `SDD approve <NNN> --via telegram --start` (one permission prompt), then run the loop. |
+| `approve <NNN>` | `SDD approve <NNN> --via <channel> --start` (one permission prompt), then run the loop. |
 | `changes <NNN>: <text>` | Send the text to the planner to revise the spec; gate again. |
 | `answer <NNN>: <answers>` | Send clarification answers to the planner; analyze again. |
 | `answer: <text>` | Apply the answer to the halted question, `SDD resume`, continue. |

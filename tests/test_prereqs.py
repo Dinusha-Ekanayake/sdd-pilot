@@ -209,3 +209,12 @@ def test_doctor_requires_bun_once_phone_control_is_set_up(
     (home / "telegram" / ".env").write_text("TELEGRAM_BOT_TOKEN=x\n")
     found = run_doctor(tmp_path)
     assert any(f.level == FAIL and "Bun is missing" in f.what for f in found)
+
+
+def test_discord_setup_also_needs_bun(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DISCORD_STATE_DIR", str(home / "discord"))
+    monkeypatch.delenv("DISCORD_BOT_TOKEN", raising=False)
+    assert not prereqs.phone_control_configured()
+    (home / "discord").mkdir()
+    (home / "discord" / ".env").write_text("DISCORD_BOT_TOKEN=x\n")
+    assert prereqs.phone_control_configured()

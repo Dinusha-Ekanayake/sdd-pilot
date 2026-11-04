@@ -13,7 +13,7 @@ from specsteward import graph, prereqs, trust
 from specsteward.check import resolve_cmd
 from specsteward.hooks import SHIM
 from specsteward.init import ASK, DENY
-from specsteward.remote import telegram_status
+from specsteward.remote import CHANNELS, channel_status, configured
 
 OK, WARN, FAIL = "ok", "warn", "FAIL"
 MIN_PYTHON = (3, 11)
@@ -166,18 +166,22 @@ def _remote() -> list[Finding]:
         return [Finding(OK, "phone control not set up (optional: `/specsteward:remote`)")]
     found = []
     if prereqs.find_bun() is None:
-        found.append(Finding(FAIL, "Bun is missing; Telegram needs it", "`sdd install bun`"))
+        found.append(Finding(FAIL, "Bun is missing; phone control needs it", "`sdd install bun`"))
     elif not prereqs.bun_on_path():
         fix = "restart the terminal and Claude Code"
         found.append(Finding(WARN, "Bun is installed but not on PATH", fix))
     else:
         found.append(Finding(OK, "Bun found"))
-    status = telegram_status()
-    if status["ready"]:
-        found.append(Finding(OK, "Telegram phone control ready"))
-    else:
-        problems = "; ".join(status["problems"])
-        found.append(Finding(WARN, f"Telegram: {problems}", "`/specsteward:remote`"))
+    for channel in CHANNELS:
+        if not configured(channel):
+            continue
+        status = channel_status(channel)
+        title = channel.name.capitalize()
+        if status["ready"]:
+            found.append(Finding(OK, f"{title} phone control ready"))
+        else:
+            problems = "; ".join(status["problems"])
+            found.append(Finding(WARN, f"{title}: {problems}", "`/specsteward:remote`"))
     return found
 
 

@@ -26,7 +26,7 @@ from specsteward.hooks import (
 )
 from specsteward.init import enable_statusline, init_project
 from specsteward.presets import PRESETS
-from specsteward.remote import telegram_status
+from specsteward.remote import remote_status
 from specsteward.tasks import parse_tasks
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -277,7 +277,7 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         print("gate config files re-baselined")
         return 0
     if command == "remote":
-        print(json.dumps(telegram_status(), indent=2))
+        print(json.dumps(remote_status(), indent=2))
         return 0
     actions = {
         "start": lambda: run_state.start(cfg, args.spec, not args.no_branch_check),
