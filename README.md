@@ -46,7 +46,7 @@ Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 | Specs that do not hang together | `sdd analyze` (no model) checks clarifications, placeholders, requirement coverage by tasks, vague wording and plan paths; `approve` refuses CRITICAL findings |
 | Project rules forgotten mid-run | `specs/constitution.md`: its MUST rules go into every brief, and the reviewer treats a violation as CRITICAL |
 | Overclaiming wording in regulated domains | Optional banned-phrase scan in the gate |
-| You are away from the laptop | Approvals and answers over Telegram |
+| You are away from the laptop | Approvals and answers over Telegram or Discord |
 
 ## Install
 
@@ -59,7 +59,7 @@ Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 | Python 3.11+ | the CLI (standard library only; nothing to `pip install`) | [python.org](https://www.python.org/downloads/), or have [uv](https://docs.astral.sh/uv/) and specsteward uses a uv-managed Python automatically |
 | `git` | branches, diffs, the gate fingerprint | [git-scm.com](https://git-scm.com/) |
 | graphify | the code graph agents query | **installed automatically** (pinned) with uv, pipx or pip |
-| [Bun](https://bun.sh) | phone control only (it runs the official Telegram plugin) | **installed automatically** (pinned) when you set up phone control |
+| [Bun](https://bun.sh) | phone control only (it runs the official Telegram and Discord plugins) | **installed automatically** (pinned) when you set up phone control |
 | `gh` (GitHub CLI) | opening the PR when you say "ship" (optional) | [cli.github.com](https://cli.github.com/) |
 
 `bash .sdd/bin/sdd doctor` checks all of these and prints the fix for anything missing.
@@ -103,9 +103,9 @@ Tip: run the orchestrating session on Sonnet (`/model sonnet`). Opus is still us
 | Behaviour-changing questions | The run halts and asks; answer with `answer: ...` |
 | Commit, push, PR | `git commit`, `git push`, `gh pr create` are **ask** rules |
 
-## Phone control (Telegram)
+## Phone control (Telegram or Discord)
 
-specsteward uses Anthropic's official Telegram channel plugin instead of its own bot. Run `/specsteward:remote` for guided setup. See [docs/telegram.md](docs/telegram.md).
+specsteward uses Anthropic's official Telegram or Discord channel plugin instead of its own bot. Run `/specsteward:remote` for guided setup, including Bun. See [docs/phone.md](docs/phone.md).
 
 | You send | Effect |
 |---|---|
@@ -141,7 +141,7 @@ Risk is `low`, `high` or `human`. Status is `[ ]` open, `[x]` done, `[?]` waitin
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In short: the gates are permission prompts, `sdd.toml` commands run only once you trust the file, approvals are bound to the spec's content, run state cannot be edited by agents, the Telegram allowlist should contain only you, secrets never go in chat, and the plugin never commits or pushes by itself.
+See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In short: the gates are permission prompts, `sdd.toml` commands run only once you trust the file, approvals are bound to the spec's content, run state cannot be edited by agents, the channel's allowlist should contain only you, secrets never go in chat, and the plugin never commits or pushes by itself.
 
 ## Limitations
 
@@ -151,7 +151,7 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.
 - Subagents start without conversation context, so briefs matter; check "BRIEF GAPS" in reports.
 - Quality still depends on your tests and spec. Green checks prove consistency, not correctness; the reviewer is a second opinion, not a guarantee.
-- Telegram needs [Bun](https://bun.sh) (installed automatically by `/specsteward:remote`) and a running session started with `--channels`.
+- Phone control needs [Bun](https://bun.sh) (installed automatically by `/specsteward:remote`) and a session started with `--channels`.
 
 ## Uninstall
 
