@@ -1,8 +1,9 @@
 """Prerequisites outside Python: Bun for phone control, plus checks for the rest.
 
-Bun runs the official Telegram channel plugin's server (its ``.mcp.json`` starts ``bun``),
-so it is needed only for phone control. specsteward installs it automatically when phone
-control is set up (``/specsteward:remote``) or already configured, never otherwise:
+Bun runs the servers of the official Telegram and Discord channel plugins (their
+``.mcp.json`` starts ``bun``), so it is needed only for phone control. specsteward installs
+it automatically when phone control is set up (``/specsteward:remote``) or already
+configured, never otherwise:
 
 - the OS package manager when there is one (Homebrew on macOS, winget on Windows);
 - else Bun's official install script at the pinned release tag, downloaded over HTTPS
@@ -12,7 +13,6 @@ control is set up (``/specsteward:remote``) or already configured, never otherwi
 """
 
 import hashlib
-import os
 import shutil
 import subprocess
 import sys
@@ -22,7 +22,7 @@ import urllib.request
 from collections.abc import Callable
 from pathlib import Path
 
-from specsteward.remote import state_dir
+from specsteward.remote import CHANNELS, configured
 from specsteward.trust import user_dir
 
 BUN_VERSION = "1.4.4"  # pinned; bump deliberately after checking the release notes
@@ -95,11 +95,8 @@ def bun_on_path() -> bool:
 
 
 def phone_control_configured() -> bool:
-    """The user has started Telegram setup: a token or a pairing exists."""
-    directory = state_dir()
-    return bool(os.environ.get("TELEGRAM_BOT_TOKEN")) or any(
-        (directory / name).exists() for name in (".env", "access.json")
-    )
+    """The user has started setting up a phone channel (Telegram or Discord)."""
+    return any(configured(channel) for channel in CHANNELS)
 
 
 def package_manager_command(platform: str = sys.platform) -> list[str] | None:
