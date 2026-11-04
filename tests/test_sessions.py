@@ -4,6 +4,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import time
 from pathlib import Path
 
@@ -239,3 +240,24 @@ def test_doctor_warns_when_several_sessions_run_the_bot(
     init_project(tmp_path / "proj", "generic")
     whats = [f.what for f in doctor.run_doctor(tmp_path / "proj")]
     assert any(w.startswith("3 telegram servers are running") for w in whats)
+
+
+# --- the implementer's own checks do not count --------------------------------------------
+
+
+def test_implementer_checks_while_working_never_halt_the_run(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from .conftest import write_config
+
+    failing = f'[[check]]\nname = "t"\ncmd = [{json.dumps(sys.executable)}, "-c", "exit(1)"]\n'
+    write_config(repo, failing)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    assert main(["start", "009", "--no-branch-check"]) == 0
+    assert main(["next"]) == 0
+    for _ in range(3):  # RED, RED again: how test-first work looks
+        assert main(["check"]) == 1
+    assert run_state.require(repo)["halted"] is None
+    assert main(["check", "--task", "T-009-02"]) == 1  # the orchestrator's gate counts
+    assert main(["check", "--task", "T-009-02"]) == 1
+    assert "same check failure twice" in run_state.require(repo)["halted"]

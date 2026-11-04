@@ -82,7 +82,7 @@ def _parser() -> argparse.ArgumentParser:
     init.add_argument("--statusline", action="store_true", help="show the run in the status line")
     check = sub.add_parser("check", help="run the quality gate")
     check.add_argument(
-        "--task", help="record failures for this task (default: the group in flight)"
+        "--task", help="the orchestrator's gate: count failures for this task's caps"
     )
     brief = sub.add_parser("brief", help="write .sdd/briefs/<first-id>.md")
     brief.add_argument("tasks", nargs="+")
@@ -260,7 +260,9 @@ def _check(cfg: cfg_mod.Config, task: str | None) -> int:
     if all(r.ok for r in results):
         run_state.record_pass(cfg, before)
         return 0
-    task = task or run_state.current_task(cfg)
+    # Only the orchestrator's gate (`--task`) counts toward the failure caps: the
+    # implementer runs the same check while it works, and a failing test is how test-first
+    # starts, so its own runs must never halt the run.
     if task:
         state = run_state.record_failure(cfg, task, signature(results))
         if state["halted"]:

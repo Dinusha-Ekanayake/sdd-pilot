@@ -54,8 +54,9 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    4. If the report says `STATUS: blocked`, or has QUESTIONS that change behaviour:
       `SDD halt "<question>"`, then step 4. Record each ASSUMPTIONS line with
       `SDD assume <task> "<text>"`.
-   5. **Gate.** `SDD check` (failures are recorded against the group in flight). On FAIL,
-      send the failing lines to the implementer and gate again. `HALTED` → step 4.
+   5. **Gate.** `SDD check --task <first id>` (only this run of the check counts failures
+      toward the caps; the implementer's own checks while it works do not). On FAIL, send
+      the failing lines to the implementer and gate again. `HALTED` → step 4.
    6. **Review.** Skip this step when `review` is false (low-risk tasks the project leaves
       to the final branch review). Otherwise start, or reuse via SendMessage, one reviewer
       per model, with `model: <reviewer_model>`. Give it the brief path and tell it to review
