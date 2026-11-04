@@ -133,14 +133,15 @@ def init_project(
         constitution.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(TEMPLATES / "constitution.md", constitution)
         done.append(f"wrote {constitution.relative_to(root).as_posix()} (edit the examples)")
-    template_dir = root / specs_dir / "_template"
-    template_dir.mkdir(parents=True, exist_ok=True)
-    for name in ("spec.md", "plan.md", "tasks.md"):
-        target = template_dir / name
-        if not target.exists() or force:
-            ensure_safe(root, target)
-            shutil.copyfile(TEMPLATES / name, target)
-            done.append(f"wrote {target.relative_to(root).as_posix()}")
+    for folder, source in (("_template", TEMPLATES), ("_template_fix", TEMPLATES / "fix")):
+        template_dir = root / specs_dir / folder
+        template_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("spec.md", "plan.md", "tasks.md"):
+            target = template_dir / name
+            if not target.exists() or force:
+                ensure_safe(root, target)
+                shutil.copyfile(source / name, target)
+                done.append(f"wrote {target.relative_to(root).as_posix()}")
     if _ensure_gitignore(root):
         done.append("added .sdd/ to .gitignore")
     done += [f"permission {rule}" for rule in _merge_settings(root / ".claude" / "settings.json")]

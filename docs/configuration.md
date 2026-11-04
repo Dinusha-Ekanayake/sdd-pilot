@@ -10,6 +10,7 @@ Any change to `sdd.toml` makes it **untrusted** until you run `sdd trust` (a per
 |---|---|---|
 | `specs_dir` | `"specs"` | Folder holding `<NNN>-<slug>/spec.md`, `plan.md`, `tasks.md` |
 | `branch_prefix` | `"feature/{spec}-"` | `sdd start 003` requires a branch starting with `feature/003-`. Set `""` to turn the check off |
+| `fix_branch_prefix` | `"fix/{spec}-"` | also accepted, for bug-fix specs (`/specsteward:run fix ...`) |
 | `status_regex` | `(\*\*Status:\*\*\s*)([^\n]*)` | Finds the status line in `spec.md`. Group 1 is kept, group 2 is replaced on approval |
 | `approved_word` | `"Approved"` | A spec counts as approved when its status starts with this **and** `sdd approve` recorded this exact content |
 | `guard` | common gate config files | Files that configure the gate (`pyproject.toml`, `conftest.py`, `package.json`, `tsconfig.json`, eslint/jest/vitest configs, `Cargo.toml`, `go.mod`, `Makefile`, ...). Changing one during a run fails `sdd check` until you review it and run `sdd trust` |

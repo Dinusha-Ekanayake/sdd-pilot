@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run an approved spec to completion with subagents (Sonnet implementer, risk-based reviewer with Opus for high risk, Haiku clerk), task briefs, a scripted quality gate, hard caps and human gates that can be approved from a phone via the Telegram channel. Use for "/specsteward:run <NNN>", "/specsteward:run plan <topic>", or phone commands like "approve 003", "status", "resume", "ship 003".
+description: Plan a feature or a bug fix and run an approved spec to completion with subagents (Sonnet implementer, risk-based reviewer with Opus for high risk, Haiku clerk), task briefs, a scripted quality gate, hard caps and human gates that can be approved from a phone via the Telegram channel. Use for "/specsteward:run <NNN>", "/specsteward:run plan <topic>", "/specsteward:run fix <bug>", or phone commands like "approve 003", "status", "resume", "ship 003".
 ---
 
 # specsteward run
@@ -18,6 +18,12 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/specsteward:init
   `:planner` (and so on).
 - Run `SDD remote`. If `ready` is true, gates are also sent to the user's phone (see
   "Phone" below). Remember the `chat_ids`.
+
+## `fix <bug>`: plan a bug fix
+Run the planner in fix mode with the bug description (error text, command, or issue
+link the user gave). It writes a small `<NNN>-fix-<slug>` spec whose first task is a
+failing regression test. Then continue exactly as for `plan` below from step 2; the
+run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
 
 ## `plan <topic>`: draft a new spec
 1. Run the planner with the topic. (No run is active yet, so nothing is counted.)

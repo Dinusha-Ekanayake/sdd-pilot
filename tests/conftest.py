@@ -26,6 +26,14 @@ PLAN = "| `src/demo/demo.py` | `make_demo(df)` builds features |\nunrelated line
 
 
 @pytest.fixture(autouse=True)
+def git_stops_at_the_test_folder(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Never let git find a repository above the test folders (a home folder may be one)."""
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path_factory.getbasetemp()))
+
+
+@pytest.fixture(autouse=True)
 def trust_home(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Keep the trust store out of the real home directory."""
     home = tmp_path_factory.mktemp("sdd-home")

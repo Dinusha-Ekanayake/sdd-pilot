@@ -12,7 +12,8 @@ from pathlib import Path
 CRITICAL, HIGH, MEDIUM, LOW = "CRITICAL", "HIGH", "MEDIUM", "LOW"
 MAX_FINDINGS = 30
 CLARIFY = re.compile(r"\[NEEDS CLARIFICATION[^\]]*\]", re.IGNORECASE)
-PLACEHOLDER = re.compile(r"<(?:NNN|Title|slug)>|\bTODO:|\bTBD\b|\?\?\?")
+PLACEHOLDER = re.compile(r"<(?:NNN|Title|slug|short description)>|\bTODO:|\bTBD\b|\?\?\?")
+FIX_KIND = re.compile(r"\*\*Kind:\*\*\s*fix\b", re.IGNORECASE)
 REQ_ID = re.compile(r"\bREQ-\d{3}-\d{2}\b")
 REQ_LINE = re.compile(r"^- (?:\[[ x]\] )?(REQ-\d{3}-\d{2}|AC-\d+):?\s*(.*)$")
 VAGUE = re.compile(
@@ -103,6 +104,26 @@ def _duplicates(reqs: dict[str, str]) -> list[Finding]:
     return found
 
 
+def _section(text: str, heading: str) -> str:
+    """The body of a ``## heading`` section, without HTML comments."""
+    match = re.search(rf"^## {heading}\s*$(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
+    return COMMENT.sub("", match.group(1)).strip() if match else ""
+
+
+def _fix_checks(spec: str, tasks: str) -> list[Finding]:
+    """A fix spec says how to reproduce the bug and starts with a regression test."""
+    if not FIX_KIND.search(spec):
+        return []
+    found = []
+    steps = _section(spec, "Reproduction")
+    if not steps or steps in ("1.", "-"):
+        found.append(Finding(HIGH, "spec.md", "fix spec without reproduction steps"))
+    rows = [line for line in tasks.splitlines() if ROW.match(line)]
+    if not rows or "regression" not in rows[0].lower():
+        found.append(Finding(HIGH, "tasks.md", "a fix starts with a failing regression test task"))
+    return found
+
+
 def analyze(spec_dir: Path) -> list[Finding]:
     spec, plan, tasks = (_read(spec_dir / n) for n in ("spec.md", "plan.md", "tasks.md"))
     found: list[Finding] = []
@@ -116,7 +137,7 @@ def analyze(spec_dir: Path) -> list[Finding]:
     if spec and not acs:
         found.append(Finding(MEDIUM, "spec.md", "no acceptance criteria (`- [ ] AC-n: ...`)"))
     found += _coverage(reqs, tasks) + _vague(reqs, acs) + _paths(tasks, plan)
-    found += _duplicates(reqs)
+    found += _duplicates(reqs) + _fix_checks(spec, tasks)
     order = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3}
     return sorted(found, key=lambda f: order[f.level])
 
