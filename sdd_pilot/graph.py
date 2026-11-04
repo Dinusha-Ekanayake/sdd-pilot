@@ -193,7 +193,7 @@ def start_background_sync(root: Path, entry: Path) -> bool:
     (root / LOCK_FILE).parent.mkdir(parents=True, exist_ok=True)
     (root / LOCK_FILE).write_text(str(os.getpid()), encoding="utf-8")
     flags = 0
-    if os.name == "nt":
+    if sys.platform == "win32":  # a check mypy narrows on every OS
         flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
     try:
         with (root / LOG_FILE).open("a", encoding="utf-8") as log:
