@@ -15,7 +15,7 @@ from specsteward.config import SPEC_NUMBER, Config
 from specsteward.dashboard import write_dashboard
 from specsteward.graph import ensure_ignores
 from specsteward.safefs import ensure_safe
-from specsteward.tasks import DONE, HUMAN, next_group, parse_tasks, set_status
+from specsteward.tasks import DONE, HUMAN, TODO, next_group, parse_tasks, set_status
 from specsteward.worktree import fingerprint
 
 STATE_DIR = Path(".sdd")
@@ -92,12 +92,15 @@ def approve(cfg: Config, spec: str, via: str) -> str:
     text = path.read_text(encoding="utf-8")
     if not re.search(cfg.status_regex, text):
         raise ValueError(f"{path.name} has no status line matching {cfg.status_regex!r}")
+    added = _appended_tasks(cfg, spec, path.parent)  # checks before anything is written
     stamp = f"{cfg.approved_word} ({date.today().isoformat()})"
     new_text = re.sub(cfg.status_regex, lambda m: f"{m.group(1)}{stamp}", text, count=1)
     ensure_safe(cfg.root, path)
     path.write_text(new_text, encoding="utf-8")
     digest = approval_digest(path.parent)
     trust.record_approval(cfg.root, spec, digest)
+    if added is not None:
+        trust.record_ticks(cfg.root, spec, added)
     entry = {
         "time": datetime.now(UTC).isoformat(timespec="seconds"),
         "spec": spec,
@@ -110,6 +113,46 @@ def approve(cfg: Config, spec: str, via: str) -> str:
     with log.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(entry) + "\n")
     return stamp
+
+
+def _appended_tasks(cfg: Config, spec: str, directory: Path) -> dict[str, str] | None:
+    """For a spec with a run in progress: the ticks after approving tasks appended to it
+    (for example by converge). Existing rows must be unchanged and new rows open.
+    None when no run of this spec is in progress."""
+    state = load(cfg.root)
+    recorded = trust.recorded_ticks(cfg.root, spec)
+    if state is None or not state["active"] or state["spec"] != spec or recorded is None:
+        return None
+    actual = {t.id: t.status for t in parse_tasks(directory / "tasks.md")}
+    changed = sorted(i for i in recorded if actual.get(i) != recorded[i])
+    if changed:
+        raise ValueError(
+            f"existing tasks changed during the run ({', '.join(changed)}); restore them first"
+        )
+    new = {i: s for i, s in actual.items() if i not in recorded}
+    if any(status != TODO for status in new.values()):
+        raise ValueError("tasks added during a run must be open ([ ])")
+    return {**recorded, **new}
+
+
+def converge_round(cfg: Config) -> dict[str, Any]:
+    """Count a converge pass once every task is ticked; give the next free task id."""
+    state = require(cfg.root)
+    tasks = parse_tasks(tasks_path(cfg.root, state))
+    if any(t.pending for t in tasks):
+        raise ValueError("converge runs after every task is ticked; run `sdd next`")
+    state["converge_rounds"] = int(state.get("converge_rounds", 0)) + 1
+    limit = cfg.limits.max_converge_rounds
+    if state["converge_rounds"] > limit:
+        halt(cfg.root, state, f"converge round cap reached ({limit}); ship or plan a new spec")
+        return {"status": "halted", "reason": state["halted"]}
+    save(cfg.root, state)
+    last = max(int(t.id.rsplit("-", 1)[1]) for t in tasks)
+    return {
+        "status": "converge",
+        "round": state["converge_rounds"],
+        "next_id": f"T-{state['spec']}-{last + 1:02d}",
+    }
 
 
 def approval_digest(directory: Path) -> str:

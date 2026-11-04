@@ -83,6 +83,7 @@ Only `"low"` is allowed. High and human risk are always reviewed.
 | `max_fix_attempts` | 3 | more than N gate failures for a task |
 | `max_agent_runs` | 60 | more than N subagent runs in one spec (declared with `sdd agent` or observed by the SubagentStop hook, whichever is higher) |
 | `restart_after_tasks` | 4 | (not a halt) start a fresh implementer after N completed tasks |
+| `max_converge_rounds` | 2 | converge has added tasks N times and would run again (the run then goes on to ship) |
 | `max_tokens` | 0 (off) | the run has used more than N fresh tokens (input, cache writes and output, from the session's and subagents' transcripts). Cached reads are shown in `sdd status` but not counted |
 
 ## `[groups]`

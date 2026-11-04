@@ -27,6 +27,7 @@ Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 | A cloned repo runs commands on your machine | `sdd.toml` commands run only after you trust that exact file |
 | Agent context grows until it drifts | The implementer is restarted every few tasks |
 | Green tests that prove nothing | The reviewer checks that tests would fail if the code were wrong |
+| "Done" that is not done | After the last task a **converger** compares the code with the spec and appends the missing work as new tasks for you to approve |
 | Silent guesses on ambiguous specs | The planner marks up to five `[NEEDS CLARIFICATION]` questions for you to answer before approval; during the run, choices are logged as assumptions and behaviour-changing ones halt the run and ask you |
 | Specs that do not hang together | `sdd analyze` (no model) checks clarifications, placeholders, requirement coverage by tasks, vague wording and plan paths; `approve` refuses CRITICAL findings |
 | Project rules forgotten mid-run | `specs/constitution.md`: its MUST rules go into every brief, and the reviewer treats a violation as CRITICAL |
