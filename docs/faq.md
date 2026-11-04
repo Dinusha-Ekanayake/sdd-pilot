@@ -1,0 +1,180 @@
+# FAQ and troubleshooting
+
+Start with `bash .sdd/bin/sdd doctor`: it checks the whole setup and prints a fix for every problem. The messages below are quoted exactly as specsteward prints them, so you can search this page for the one you see.
+
+- [Using specsteward](#using-specsteward)
+- [Setup problems](#setup-problems)
+- [Approval problems](#approval-problems)
+- [When a run halts](#when-a-run-halts)
+- [Gate and task problems](#gate-and-task-problems)
+- [Phone control problems](#phone-control-problems)
+- [Code graph problems](#code-graph-problems)
+
+## Using specsteward
+
+**What does specsteward actually do?**
+You approve a spec; subagents build it task by task, test first. A scripted gate (your own lint, types and tests) must pass and a reviewer must sign off before a task is ticked, and you stay in charge at every gate. See [How it works](how-it-works.md).
+
+**How is it different from GitHub's Spec Kit?**
+Spec Kit helps you write specs and drive an agent through them. specsteward borrows its clarify, analyze, constitution and converge ideas, and adds unattended execution: a scripted gate, risk-based reviewers, caps that stop runaway loops, gates an agent cannot edit around, a token budget, and approvals from your phone.
+
+**Can I use it on an existing project?**
+Yes. `/specsteward:init` reads the tools the project already has. The planner reads the code (through the code graph) before writing a spec.
+
+**Do I have to use the planner? Can I write specs myself?**
+Write them yourself if you like: copy `specs/_template/` to `specs/004-my-feature/`, fill it in, run `bash .sdd/bin/sdd analyze 004`, then approve.
+
+**Do I need Telegram or Discord?**
+No. Everything works in the terminal. Phone control is for approving and answering while you are away.
+
+**Which models does it use, and can I change them?**
+Planner and converger: Opus. Implementer: Sonnet. Clerk: Haiku. Reviewer: Sonnet for low risk, Opus for high and human risk (`[models]` in `sdd.toml`). Run your own session on Sonnet (`/model sonnet`).
+
+**How do I keep the cost down?**
+Run the session on Sonnet; set `[limits] max_tokens` to stop a run at a budget; optionally `[review] skip = ["low"]` to leave low-risk tasks to the final review. `bash .sdd/bin/sdd status` shows the tokens used.
+
+**How do I see progress?**
+`bash .sdd/bin/sdd status`, the status line (`bash .sdd/bin/sdd init --statusline`), or open `.sdd/dashboard.html` (it refreshes itself).
+
+**How do I stop a run?**
+`bash .sdd/bin/sdd halt "reason"` pauses it; `bash .sdd/bin/sdd stop` ends it. From the phone, send `stop`.
+
+**Does it commit or push on its own?**
+No. When you say `ship <NNN>`, commit, push and opening the PR each ask for your permission.
+
+**Is my code sent anywhere?**
+specsteward has no telemetry. Your code goes to Claude as in any Claude Code session. With phone control, short summaries and the spec or plan files you ask for are sent to your chat app.
+
+**Can I run two specs at once?**
+Yes, one per git worktree: `bash .sdd/bin/sdd worktree 005`.
+
+**Why so many permission prompts?**
+Only the gates prompt: approving a spec, trusting `sdd.toml`, starting or resuming a run (they reset counters), commit, push and PR. Everything else is allowed. The prompts are the guarantee that an agent cannot approve its own work.
+
+**Claude says it cannot edit `.claude/settings.json`.**
+By design: in a specsteward project, file tools may not change the permission rules that make the gates. Edit the file yourself or use `/config`.
+
+## Setup problems
+
+**`specsteward: Python 3.11+ not found.`**
+Install Python 3.11+ from python.org, or install [uv](https://docs.astral.sh/uv/) and specsteward uses a uv-managed Python, or set `SDD_PYTHON` to a Python 3.11+ executable.
+
+**Hooks fail on Windows with `bash: command not found`.**
+Install [Git for Windows](https://git-scm.com/download/win) (it includes bash) and restart Claude Code.
+
+**`no sdd.toml here or above; set the project up with /specsteward:init`**
+You are outside a set-up project. Open Claude Code in the project root, or run `/specsteward:init`.
+
+**`sdd.toml is not trusted (new, or changed since sdd trust). Its commands were not run.`**
+The gate only runs commands from an `sdd.toml` you trusted. After you (or a teammate's commit) change it, review it and run `bash .sdd/bin/sdd trust`. This also happens after moving or renaming the project folder.
+
+**`pnpm not found (needed by 'lint', 'types', 'tests')`** (or any tool)
+Install that tool, or change the `cmd` of those `[[check]]` steps to what your project uses, then `bash .sdd/bin/sdd trust`.
+
+**`the gate has no [[check]] steps, so it proves nothing`**
+`init` found no test commands. Add at least your test command to `sdd.toml`, for example:
+```toml
+[[check]]
+name = "tests"
+cmd = ["npm", "test"]
+```
+then `bash .sdd/bin/sdd trust`.
+
+**`not a git repository`**
+Run `git init` in the project root. Reviews read `git diff`, and runs use branches.
+
+**`trust store is locked (...); try again`**
+Another session was writing the trust store at the same moment. Try again; a lock left behind by a crashed process clears itself after 30 seconds.
+
+**`SDD_HOME (...) must be outside the project (...)`**
+`SDD_HOME` moves the trust store; it may not point inside the project, where agents can write. Unset it or point it elsewhere.
+
+## Approval problems
+
+**`resolve the CRITICAL findings first (or pass --anyway)`**
+`bash .sdd/bin/sdd analyze <NNN>` lists them: usually an unanswered `[NEEDS CLARIFICATION]` question or a template placeholder. Answer or fix them, then approve again.
+
+**`there is no spec 003 in specs/; draft one with /specsteward:run plan <topic>`**
+Check the number with `ls specs`. Spec numbers are three digits (`003`, not `3`).
+
+**`.../spec.md says approved but has no recorded approval; run sdd approve 003`**
+The status line was set to Approved by hand (or by an agent). Only `sdd approve` records an approval.
+
+**`... (spec, plan or task table) changed after it was approved; the user must approve it again`**
+An approval covers the spec, the plan and the task definitions exactly as approved. Review what changed (`git diff specs/`), then `bash .sdd/bin/sdd approve <NNN> --start`.
+
+**`switch to a feature/003-* or fix/003-* branch first`**
+Runs happen on the spec's branch: `git checkout -b feature/003-rate-limit`. To turn the check off, set `branch_prefix = ""` in `[project]`.
+
+**`a run for spec 003 is already active; use sdd resume`** / **`...; run sdd stop first`**
+Only one run per checkout. Resume the active one, stop it, or use `bash .sdd/bin/sdd worktree <NNN>` for parallel specs.
+
+## When a run halts
+
+A halt means the run needs you. `bash .sdd/bin/sdd status` shows the reason. Deal with it, then `bash .sdd/bin/sdd resume` (it asks you first, because it resets the task's counters).
+
+| Halt reason | What it means | What to do |
+|---|---|---|
+| `T-...: same check failure twice (...)` | The implementer's fix did not change the failure | Look at `bash .sdd/bin/sdd check`; give a hint or adjust the task, then resume |
+| `T-...: fix attempt cap reached` | More than `max_fix_attempts` failed gates | The task is probably too big or underspecified; split or clarify it |
+| `T-...: review round cap reached with open findings` | The reviewer still has CRITICAL or HIGH findings | Read the findings; decide, then resume |
+| `agent run cap reached (60)` | More subagent runs than `max_agent_runs` | Check progress; raise the cap if the spec is just large |
+| `token budget reached (... of ...)` | Fresh tokens exceeded `max_tokens` | Raise the budget or stop the run |
+| `no task completed since the last automatic continue` | The session kept going without progress | Read the last messages; give direction, then resume |
+| `... changed after it was approved ...` | Spec, plan or tasks changed during the run (for example by converge) | Review and `bash .sdd/bin/sdd approve <NNN> --start` |
+| `tasks.md changed outside sdd done (...)` | A task row was ticked, removed or added by hand | Restore it (`git checkout -- specs/<NNN>-*/tasks.md`) or approve the new tasks |
+| `converge round cap reached (2); ship or plan a new spec` | Converge keeps finding work | Ship what you have, or plan the rest as a new spec |
+| a question from the planner, implementer or reviewer | A decision only you can make | Answer it (`answer: ...` from the phone), then resume |
+
+## Gate and task problems
+
+**`no passing sdd check for the code as it is now; run the gate again`**
+`done` only ticks a task when the last passing gate saw the current code. Something changed since (often the reviewer's extra test). Run `bash .sdd/bin/sdd check` again.
+
+**`no clean review for the code as it is now; review it (again) first`**
+The code changed after the review, or the review asked for changes. Review again.
+
+**`files changed while the gate ran; run sdd check again`**
+Something wrote files during the check. If your tests write files into the project, write them to a temporary folder or add them to `.gitignore`.
+
+**`gate config changed during the run: pyproject.toml`**
+A file that configures the gate (lint, type, test or coverage settings) changed during a run. If an agent did it, revert it. If you meant it, review the change and run `bash .sdd/bin/sdd trust`.
+
+**`T-...: the Status cell must be the last column of the row`**
+The task table needs `| ID | Task | Test | Risk | Status |`, with Status last.
+
+**Tests pass but the code is wrong.**
+The gate proves consistency, not correctness. Strengthen the acceptance criteria, mark the task `high` risk (Opus review plus an adversarial test), and add the rule to `specs/constitution.md`.
+
+## Phone control problems
+
+**The bot does not answer.**
+Start Claude Code with the channel on (`claude --channels plugin:telegram@claude-plugins-official`, or `discord`), DM the bot, and pair with `/<channel>:access pair <code>` in the terminal. Run `bash .sdd/bin/sdd remote` to see what is missing.
+
+**`Bun is missing; phone control needs it`**
+Run `bash .sdd/bin/sdd install bun`.
+
+**`Bun is installed but not on PATH`**
+Restart the terminal and Claude Code, so the channel plugin can start `bun`.
+
+**`Bun's installer needs unzip; install it (for example sudo apt install unzip)`**
+On Linux, install `unzip` with your package manager, then `bash .sdd/bin/sdd install bun` again.
+
+**`dmPolicy is not 'allowlist'`** / **`more than one user can approve`**
+Lock it down: `/<channel>:access policy allowlist`, and keep only your own account in the allowlist.
+
+**Approvals do not reach the phone while I am away.**
+The computer must stay on and awake during a run (on Windows: Settings > Power, sleep "Never" when plugged in).
+
+## Code graph problems
+
+**`code graph is missing` or `stale`**
+It rebuilds in the background at session start. To do it now: `bash .sdd/bin/sdd graph sync`. Its log is `.sdd/graphify.log`.
+
+**`could not install graphifyy==... (tried uv, pipx, pip)`**
+Install [uv](https://docs.astral.sh/uv/) (recommended) and try `bash .sdd/bin/sdd graph sync` again. To turn the graph off, set `[graphify] auto = false`.
+
+**I do not want anything installed automatically.**
+Set `[graphify] auto = false` in `sdd.toml`, and do not set up phone control (Bun is installed only for it).
+
+Still stuck? Open an issue with the output of `bash .sdd/bin/sdd doctor`: [new issue](https://github.com/Dinusha-Ekanayake/specsteward/issues/new/choose).

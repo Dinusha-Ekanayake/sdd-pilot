@@ -73,6 +73,8 @@ Or from a local clone: `/plugin marketplace add /path/to/specsteward`.
 
 ## Quick start
 
+The full walkthrough is the **[setup guide](docs/setup-guide.md)**; if anything goes wrong, see the **[FAQ and troubleshooting](docs/faq.md)**. The short version:
+
 In your project:
 
 ```text
@@ -173,5 +175,7 @@ bash .sdd/bin/sdd check
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed.
+
+Docs: [setup guide](docs/setup-guide.md) · [FAQ and troubleshooting](docs/faq.md) · [how it works](docs/how-it-works.md) · [configuration](docs/configuration.md) · [phone control](docs/phone.md) · [security](docs/security.md)
 
 The clarify step, the cross-artifact analysis and the constitution are inspired by GitHub's [Spec Kit](https://github.com/github/spec-kit).
