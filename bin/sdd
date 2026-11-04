@@ -25,9 +25,39 @@ pick_python() {
     echo "py -3"
     return
   fi
-  echo "sdd-pilot: Python 3.11+ not found. Install it or set SDD_PYTHON." >&2
+  # No Python 3.11+, but uv can provide one (it downloads a managed Python once).
+  if command -v uv >/dev/null 2>&1 && works uv run --no-project --quiet --python ">=3.11" python; then
+    echo "uv run --no-project --quiet --python >=3.11 python"
+    return
+  fi
+  {
+    echo "sdd-pilot: Python 3.11+ not found."
+    echo "  Install it from https://www.python.org/downloads/ , or install uv"
+    echo "  (https://docs.astral.sh/uv/) and sdd-pilot will use a uv-managed Python."
+    echo "  Or point SDD_PYTHON at a Python 3.11+ executable."
+  } >&2
   exit 127
 }
+
+# Hooks fire in every project. Without an sdd.toml at or above the project directory they
+# have nothing to do, so leave before starting Python (saves ~100 ms per edit and session).
+CONFIG_DIR=""
+has_config() {
+  local dir="${CLAUDE_PROJECT_DIR:-$PWD}"
+  while :; do
+    [ -f "$dir/sdd.toml" ] && CONFIG_DIR="$dir" && return 0
+    local parent
+    parent="$(dirname "$dir")"
+    [ "$parent" = "$dir" ] && return 1
+    dir="$parent"
+  done
+}
+
+case "${1:-}" in
+  hook-*) has_config || exit 0 ;;
+  # The status line refreshes often; with no run there is nothing to show.
+  statusline) { has_config && [ -f "$CONFIG_DIR/.sdd/state.json" ]; } || exit 0 ;;
+esac
 
 PYTHON="$(pick_python)"
 # shellcheck disable=SC2086  # "py -3" must split into two words

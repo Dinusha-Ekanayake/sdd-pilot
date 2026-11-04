@@ -13,6 +13,39 @@ from typing import Any
 
 CONFIG_FILE = "sdd.toml"
 RISKS = ("low", "high", "human")
+GRAPHIFY_VERSION = "0.9.100"  # pinned; see sdd_pilot/graph.py
+SPEC_NUMBER = re.compile(r"\d{3}")
+# Files that configure the gate itself. Changing one during a run fails `sdd check` until
+# the user looks at it and runs `sdd trust`, so an agent cannot quietly weaken the gate.
+GUARD_FILES = (
+    "pyproject.toml",
+    "setup.cfg",
+    "tox.ini",
+    "pytest.ini",
+    ".coveragerc",
+    "mypy.ini",
+    "ruff.toml",
+    ".ruff.toml",
+    "conftest.py",
+    "tests/conftest.py",
+    "package.json",
+    "tsconfig.json",
+    ".eslintrc",
+    ".eslintrc.json",
+    ".eslintrc.js",
+    "eslint.config.js",
+    "eslint.config.mjs",
+    "jest.config.js",
+    "jest.config.ts",
+    "vitest.config.ts",
+    "vitest.config.js",
+    ".prettierrc",
+    "go.mod",
+    "Cargo.toml",
+    "clippy.toml",
+    "rustfmt.toml",
+    "Makefile",
+)
 
 
 @dataclass(frozen=True)
@@ -20,6 +53,7 @@ class CheckStep:
     name: str
     cmd: tuple[str, ...]
     keep: str = ""  # regex for the output lines worth showing; empty keeps the tail
+    timeout: int = 900  # seconds; a hanging step fails instead of stalling the run
 
 
 @dataclass(frozen=True)
@@ -28,6 +62,7 @@ class Limits:
     max_fix_attempts: int = 3
     max_agent_runs: int = 60
     restart_after_tasks: int = 4
+    max_tokens: int = 0  # fresh tokens per run (input, cache writes, output); 0 = off
 
 
 @dataclass(frozen=True)
@@ -56,10 +91,16 @@ class Config:
     max_group: int = 3
     max_group_high: int = 2
     helper_files: tuple[str, ...] = ()
-    path_roots: tuple[str, ...] = ("src", "lib", "app", "tests", "scripts", "configs", "docs")
+    path_roots: tuple[str, ...] = ()  # empty: the project's top-level folders
     graphify: bool = True
+    guard: tuple[str, ...] = GUARD_FILES
+    review_skip: tuple[str, ...] = ()  # risks reviewed only by the final branch review
+    graphify_auto: bool = True  # keep a code graph built and fresh, in the background
+    graphify_version: str = GRAPHIFY_VERSION
 
     def spec_dir(self, spec: str) -> Path:
+        if not SPEC_NUMBER.fullmatch(spec):
+            raise ValueError(f"spec must be a three-digit number such as 003, got {spec!r}")
         matches = sorted((self.root / self.specs_dir).glob(f"{spec}-*"))
         if len(matches) != 1:
             raise ValueError(
@@ -81,14 +122,36 @@ def _tuple(value: Any) -> tuple[str, ...]:
     return tuple(str(v) for v in value or ())
 
 
+def _review_skip(raw: dict[str, Any]) -> tuple[str, ...]:
+    skip = _tuple(raw.get("skip", ()))
+    if set(skip) - {"low"}:
+        raise ValueError(
+            "[review] skip may only contain 'low'; high and human risk are always reviewed"
+        )
+    return skip
+
+
+def _regex(pattern: str, where: str) -> None:
+    """Compile at load time, so a bad regex fails `sdd` with a clear message, not mid-run."""
+    try:
+        re.compile(pattern)
+    except re.error as error:
+        raise ValueError(f"{where}: invalid regex {pattern!r}: {error}") from error
+
+
 def _steps(raw: list[dict[str, Any]]) -> tuple[CheckStep, ...]:
     steps = []
     for item in raw:
         if "name" not in item or "cmd" not in item:
             raise ValueError("each [[check]] step needs a name and a cmd list")
-        if isinstance(item["cmd"], str):
-            raise ValueError(f"check step {item['name']!r}: cmd must be a list of arguments")
-        steps.append(CheckStep(str(item["name"]), _tuple(item["cmd"]), str(item.get("keep", ""))))
+        if isinstance(item["cmd"], str) or not item["cmd"]:
+            raise ValueError(f"check step {item['name']!r}: cmd must be a non-empty list")
+        timeout = int(item.get("timeout", CheckStep.timeout))
+        if timeout < 1:
+            raise ValueError(f"check step {item['name']!r}: timeout must be at least 1")
+        keep = str(item.get("keep", ""))
+        _regex(keep, f"check step {item['name']!r} keep")
+        steps.append(CheckStep(str(item["name"]), _tuple(item["cmd"]), keep, timeout))
     return tuple(steps)
 
 
@@ -105,13 +168,15 @@ def _models(raw: dict[str, Any]) -> dict[str, str]:
 def from_dict(root: Path, raw: dict[str, Any]) -> Config:
     project = raw.get("project", {})
     limits = Limits(**raw.get("limits", {}))
-    if min(vars(limits).values()) < 1:
-        raise ValueError("[limits] values must be at least 1")
+    counts = {k: v for k, v in vars(limits).items() if k != "max_tokens"}
+    if min(counts.values()) < 1 or limits.max_tokens < 0:
+        raise ValueError("[limits] values must be at least 1 (max_tokens: 0 or more)")
     wording_raw = raw.get("wording", {})
     for pattern in _tuple(wording_raw.get("banned")):
-        re.compile(pattern)  # fail at load time, not mid-run
+        _regex(pattern, "[wording] banned")
     groups = raw.get("groups", {})
     brief = raw.get("brief", {})
+    graph = raw.get("graphify", {})
     return Config(
         root=root,
         specs_dir=str(project.get("specs_dir", "specs")),
@@ -135,8 +200,12 @@ def from_dict(root: Path, raw: dict[str, Any]) -> Config:
         max_group=int(groups.get("max_size", 3)),
         max_group_high=int(groups.get("max_high", 2)),
         helper_files=_tuple(brief.get("helper_files")),
-        path_roots=_tuple(brief.get("path_roots", Config.path_roots)),
+        path_roots=_tuple(brief.get("path_roots", ())),
         graphify=bool(brief.get("graphify", True)),
+        guard=_tuple(project.get("guard", GUARD_FILES)),
+        graphify_auto=bool(graph.get("auto", True)),
+        graphify_version=str(graph.get("version", GRAPHIFY_VERSION)),
+        review_skip=_review_skip(raw.get("review", {})),
     )
 
 

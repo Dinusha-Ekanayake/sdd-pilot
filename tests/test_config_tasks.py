@@ -43,7 +43,10 @@ def test_check_steps_and_format_parsed(repo: Path) -> None:
 @pytest.mark.parametrize(
     ("raw", "match"),
     [
-        ({"check": [{"name": "x", "cmd": "pytest -q"}]}, "list of arguments"),
+        ({"check": [{"name": "x", "cmd": "pytest -q"}]}, "non-empty list"),
+        ({"check": [{"name": "x", "cmd": []}]}, "non-empty list"),
+        ({"check": [{"name": "x", "cmd": ["x"], "timeout": 0}]}, "timeout"),
+        ({"check": [{"name": "x", "cmd": ["x"], "keep": "("}]}, "missing \\)"),
         ({"check": [{"cmd": ["x"]}]}, "name and a cmd"),
         ({"models": {"medium": "opus"}}, "keys must be"),
         ({"limits": {"max_fix_attempts": 0}}, "at least 1"),
@@ -127,3 +130,24 @@ def test_next_group_caps_high_risk_and_isolates_human(repo: Path) -> None:
     rest = [t for t in tasks if t.id in ("T-009-01", "T-009-06")]
     assert [t.id for t in next_group(rest)] == ["T-009-06"]
     assert next_group([t for t in tasks if not t.pending]) == []
+
+
+def test_pipes_inside_backticks_or_escaped_stay_in_the_cell(tmp_path: Path) -> None:
+    path = tmp_path / "tasks.md"
+    path.write_text(
+        "| ID | Task | Test | Risk | Status |\n|---|---|---|---|---|\n"
+        "| T-001-01 | parse `a | b` and a \| c | ok | low | [ ] |\n"
+    )
+    task = parse_tasks(path)[0]
+    assert task.text == "parse `a | b` and a | c" and task.status == "[ ]"
+
+
+def test_set_status_refuses_when_status_is_not_the_last_column(tmp_path: Path) -> None:
+    path = tmp_path / "tasks.md"
+    path.write_text(
+        "| ID | Task | Test | Status | Risk |\n|---|---|---|---|---|\n"
+        "| T-001-01 | x | y | [ ] | low |\n"
+    )
+    with pytest.raises(ValueError, match="last column"):
+        set_status(path, "T-001-01", "[x]")
+    assert "[ ]" in path.read_text()

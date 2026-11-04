@@ -1,13 +1,16 @@
 """Claude Code hooks. All of them do nothing in a project without ``sdd.toml``."""
 
+import os
 import shlex
 import subprocess
 from pathlib import Path
 from typing import Any
 
 from sdd_pilot import state as run_state
+from sdd_pilot import trust
 from sdd_pilot.check import resolve_cmd
 from sdd_pilot.config import Config
+from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import parse_tasks
 
 SHIM = Path(".sdd") / "bin" / "sdd"
@@ -31,6 +34,10 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
     state = run_state.load(cfg.root)
     if state is None or not state["active"] or state["halted"]:
         return None
+    problem = run_state.integrity_problem(cfg, state)
+    if problem:  # never ask Claude to continue on a table it may have edited itself
+        run_state.halt(cfg.root, state, problem)
+        return None
     tasks = parse_tasks(run_state.tasks_path(cfg.root, state))
     open_count = sum(t.pending for t in tasks)
     if open_count == 0:
@@ -45,12 +52,76 @@ def stop_decision(cfg: Config) -> dict[str, str] | None:
     return {"decision": "block", "reason": reason}
 
 
+GUARD_REASON = (
+    "sdd-pilot: {path} holds run state, the trust store or the permission rules that make "
+    "the gates. It is not edited with file tools, so gates and caps cannot be edited around. "
+    "Use `{sdd} <command>`; the user can change Claude settings with /config or by hand."
+)
+CLAUDE_SETTINGS = (Path(".claude") / "settings.json", Path(".claude") / "settings.local.json")
+
+
+def _edited_path(payload: dict[str, Any]) -> str:
+    tool_input = payload.get("tool_input") or {}
+    return str(tool_input.get("file_path") or tool_input.get("notebook_path") or "")
+
+
+def _inside(path: Path, directory: Path) -> bool:
+    try:
+        return path.is_relative_to(directory.resolve())
+    except (OSError, ValueError):
+        return False
+
+
+def _same(a: Path, b: Path) -> bool:
+    """Same file or folder by identity, so UNC, 8.3 or other aliases of a path match too."""
+    try:
+        return a.exists() and b.exists() and os.path.samefile(a, b)
+    except OSError:
+        return False
+
+
+def _protected(path: Path, directories: tuple[Path, ...], files: tuple[Path, ...]) -> bool:
+    if any(_inside(path, d) for d in directories) or path in {f.resolve() for f in files}:
+        return True
+    if any(_same(path, f) for f in files):
+        return True
+    return any(_same(parent, d) for parent in (path, *path.parents) for d in directories)
+
+
+def guard_decision(cfg: Config, payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Deny file-tool edits to ``.sdd/``, the trust store and Claude settings (PreToolUse)."""
+    raw = _edited_path(payload)
+    if not raw:
+        return None
+    path = Path(raw)
+    if not path.is_absolute():
+        path = Path(str(payload.get("cwd") or cfg.root)) / path
+    path = path.resolve()
+    directories = (cfg.root / SHIM.parent.parent, trust.store_path().parent)
+    files = tuple(cfg.root / rel for rel in CLAUDE_SETTINGS)
+    if not _protected(path, directories, files):
+        return None
+    return {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": GUARD_REASON.format(path=raw, sdd=SDD),
+        }
+    }
+
+
 def format_file(cfg: Config, payload: dict[str, Any]) -> None:
-    """Run the configured formatters on an edited file. Never fails the edit."""
+    """Run the configured formatters on an edited file. Never fails the edit.
+
+    Does nothing until the user has trusted this exact ``sdd.toml``: the commands come
+    from the repository, and this hook runs without a permission prompt.
+    """
+    if not trust.config_trusted(cfg.root):
+        return
     file_path = str(payload.get("tool_input", {}).get("file_path", ""))
     path = Path(file_path)
-    if not file_path or not path.exists():
-        return
+    if not file_path or not path.is_file() or not _inside(path.resolve(), cfg.root):
+        return  # never run project formatters on files outside the project
     for cmd in cfg.format_cmds.get(path.suffix, ()):
         args = [part.replace("{file}", file_path) for part in cmd]
         try:
@@ -68,6 +139,7 @@ def format_file(cfg: Config, payload: dict[str, Any]) -> None:
 def write_shim(root: Path, launcher: Path) -> Path:
     """``.sdd/bin/sdd`` points at this plugin version, so permission rules stay stable."""
     shim = root / SHIM
+    ensure_safe(root, shim)
     shim.parent.mkdir(parents=True, exist_ok=True)
     target = shlex.quote(launcher.as_posix())
     shim.write_text(

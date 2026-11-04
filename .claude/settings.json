@@ -9,10 +9,16 @@
     ],
     "ask": [
       "Bash(bash .sdd/bin/sdd approve:*)",
-      "Bash(git commit:*)",
+      "Bash(bash .sdd/bin/sdd trust:*)",
+      "Bash(bash .sdd/bin/sdd resume:*)",
+      "Bash(bash .sdd/bin/sdd start:*)",
       "Bash(git push:*)",
       "Bash(gh pr create:*)",
       "Bash(gh pr merge:*)"
+    ],
+    "deny": [
+      "Edit(.sdd/**)",
+      "Edit(~/.claude/sdd-pilot/**)"
     ]
   }
 }

@@ -11,7 +11,10 @@ prompts to your phone with Allow/Deny buttons.
 
 1. Run `bash .sdd/bin/sdd remote` and read `problems`.
 2. Walk the user through whatever is missing, one step at a time:
-   1. **Bun** must be installed (the channel server runs on it): https://bun.sh
+   1. **Bun** (the channel server runs on it): run `bash .sdd/bin/sdd install bun`. It
+      installs the pinned version for this user (Homebrew or winget when available,
+      else Bun's official script; no admin rights). Do this without asking, and tell
+      the user in one line what was installed. If it fails, show the fix it prints.
    2. Create a bot: in Telegram, message @BotFather, send `/newbot`, copy the token.
    3. `/plugin install telegram@claude-plugins-official`
    4. `/telegram:configure <token>` (stored in `~/.claude/channels/telegram/.env`, not in

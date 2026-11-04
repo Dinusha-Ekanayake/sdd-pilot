@@ -5,10 +5,12 @@ import shutil
 from pathlib import Path
 from typing import Any
 
+from sdd_pilot import trust
 from sdd_pilot.config import CONFIG_FILE
+from sdd_pilot.presets import detect_stack, preset_for, render_checks, render_format
+from sdd_pilot.safefs import ensure_safe
 
 TEMPLATES = Path(__file__).resolve().parent.parent / "templates"
-PRESETS = ("python", "node", "generic")
 SDD = "bash .sdd/bin/sdd"
 
 ALLOW = [
@@ -20,42 +22,74 @@ ALLOW = [
 ]
 # Human gates. "ask" beats "allow", so these always prompt, and a channel plugin
 # with permission relay (for example Telegram) can show the prompt on a phone.
+# Everything that approves, trusts, or resets a cap is here; halting and stopping are not.
 ASK = [
     f"Bash({SDD} approve:*)",
+    f"Bash({SDD} trust:*)",
+    f"Bash({SDD} start:*)",  # a restart would reset the caps
+    f"Bash({SDD} resume:*)",  # clears a halt and the per-task counters
     "Bash(git commit:*)",
     "Bash(git push:*)",
     "Bash(gh pr create:*)",
     "Bash(gh pr merge:*)",
 ]
 
+# Defence in depth next to the PreToolUse guard hook: file tools never edit run state
+# or the trust store. "Edit" rules cover every built-in file-editing tool.
+DENY = [
+    "Edit(.sdd/**)",
+    "Edit(~/.claude/sdd-pilot/**)",
+    "Edit(.claude/settings.json)",
+    "Edit(.claude/settings.local.json)",
+]
 
-def _python_exe(root: Path) -> str:
-    for candidate in (".venv/Scripts/python.exe", ".venv/bin/python", "venv/bin/python"):
-        if (root / candidate).exists():
-            return candidate
-    return "python"
 
-
-def render_config(root: Path, preset: str) -> str:
-    if preset not in PRESETS:
-        raise ValueError(f"preset must be one of {PRESETS}")
-    text = (TEMPLATES / f"sdd.{preset}.toml").read_text(encoding="utf-8")
-    return text.replace("{python}", _python_exe(root))
+def render_config(root: Path, preset: str = "auto", specs_dir: str = "specs") -> str:
+    """``sdd.toml`` for this project, with the gate built from what it already uses."""
+    chosen = preset_for(root, preset)
+    text = (TEMPLATES / CONFIG_FILE).read_text(encoding="utf-8")
+    scan = "[" + ", ".join(f'"{name}"' for name in chosen.scan) + "]"
+    for marker, value in (
+        ("@@STACK@@", chosen.stack),
+        ("@@SPECS_DIR@@", specs_dir),
+        ("@@CHECKS@@", render_checks(chosen)),
+        ("@@FORMAT@@", render_format(chosen)),
+        ("@@SCAN@@", scan),
+    ):
+        text = text.replace(marker, value)
+    return text
 
 
 def _merge_settings(path: Path) -> list[str]:
     settings: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     permissions = settings.setdefault("permissions", {})
     added = []
-    for key, rules in (("allow", ALLOW), ("ask", ASK)):
+    for key, rules in (("allow", ALLOW), ("ask", ASK), ("deny", DENY)):
         existing = permissions.setdefault(key, [])
         for rule in rules:
             if rule not in existing:
                 existing.append(rule)
                 added.append(f"{key}: {rule}")
+    ensure_safe(path.parent.parent, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
     return added
+
+
+STATUSLINE = {"type": "command", "command": f"{SDD} statusline", "padding": 0}
+
+
+def enable_statusline(root: Path) -> str:
+    """Opt-in: show the run in this user's status line (``.claude/settings.local.json``)."""
+    path = root / ".claude" / "settings.local.json"
+    settings: dict[str, Any] = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    if "statusLine" in settings:
+        return f"kept the existing status line; add `{SDD} statusline` to it to show the run"
+    settings["statusLine"] = STATUSLINE
+    ensure_safe(root, path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+    return "status line enabled in .claude/settings.local.json"
 
 
 def _ensure_gitignore(root: Path) -> bool:
@@ -64,26 +98,47 @@ def _ensure_gitignore(root: Path) -> bool:
     if any(line.strip() in (".sdd", ".sdd/") for line in text.splitlines()):
         return False
     prefix = "" if not text or text.endswith("\n") else "\n"
+    ensure_safe(root, path)
     path.write_text(f"{text}{prefix}\n# sdd-pilot run state\n.sdd/\n", encoding="utf-8")
     return True
 
 
 def init_project(
-    root: Path, preset: str, specs_dir: str = "specs", force: bool = False
+    root: Path, preset: str = "auto", specs_dir: str = "specs", force: bool = False
 ) -> list[str]:
     """Create what is missing and report each change. Never overwrites without ``force``."""
     done = []
     config = root / CONFIG_FILE
     if config.exists() and not force:
         done.append(f"kept existing {CONFIG_FILE}")
+        if not trust.config_trusted(root):
+            done.append(f"review {CONFIG_FILE}, then run `{SDD} trust` before the first check")
     else:
-        config.write_text(render_config(root, preset), encoding="utf-8")
-        done.append(f"wrote {CONFIG_FILE} ({preset} preset)")
+        replacing = config.exists()
+        stack = detect_stack(root) if preset == "auto" else preset
+        ensure_safe(root, config)
+        config.write_text(render_config(root, stack, specs_dir), encoding="utf-8")
+        steps = ", ".join(step.name for step in preset_for(root, stack).checks) or "none found"
+        if replacing:
+            # `init --force` is allow-listed, so replacing a tuned config must not also
+            # trust the (weaker) default: the user reviews it and runs `sdd trust`.
+            done.append(f"replaced {CONFIG_FILE} ({stack} project; checks: {steps}; NOT trusted)")
+            done.append(f"review {CONFIG_FILE}, then run `{SDD} trust` before the first check")
+        else:
+            trust.trust_config(root)  # a new file the user asked for starts trusted
+            done.append(f"wrote {CONFIG_FILE} ({stack} project; checks: {steps}; trusted)")
+    constitution = root / specs_dir / "constitution.md"
+    if not constitution.exists():
+        ensure_safe(root, constitution)
+        constitution.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(TEMPLATES / "constitution.md", constitution)
+        done.append(f"wrote {constitution.relative_to(root).as_posix()} (edit the examples)")
     template_dir = root / specs_dir / "_template"
     template_dir.mkdir(parents=True, exist_ok=True)
     for name in ("spec.md", "plan.md", "tasks.md"):
         target = template_dir / name
         if not target.exists() or force:
+            ensure_safe(root, target)
             shutil.copyfile(TEMPLATES / name, target)
             done.append(f"wrote {target.relative_to(root).as_posix()}")
     if _ensure_gitignore(root):

@@ -8,10 +8,13 @@ import hashlib
 import re
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from sdd_pilot.config import CheckStep, Config, Wording
+from sdd_pilot import state as run_state
+from sdd_pilot import trust
+from sdd_pilot.config import CONFIG_FILE, CheckStep, Config, Wording
 
 MAX_DETAIL_LINES = 25
 COVERAGE_LINE = re.compile(r"^(TOTAL\b|All files\b|Statements\s*:)")
@@ -25,11 +28,57 @@ class StepResult:
     detail: tuple[str, ...]
 
 
+PYTHON_PLACEHOLDER = "{python}"
+_VENV_PYTHONS = (
+    ".venv/Scripts/python.exe",
+    ".venv/bin/python",
+    "venv/Scripts/python.exe",
+    "venv/bin/python",
+)
+
+
+def _committed(root: Path, rel: str) -> bool:
+    """True when git tracks ``rel``: a real virtual environment is never committed."""
+    try:
+        proc = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", "--", rel],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+    except OSError:
+        return False
+    return proc.returncode == 0
+
+
+def project_python(root: Path) -> str:
+    """The project's virtual environment Python, else the interpreter running sdd.
+
+    A venv counts only if it looks like one (``pyvenv.cfg``) and is not in git, so a cloned
+    repository cannot ship the interpreter the gate and the format hook run.
+    """
+    for candidate in _VENV_PYTHONS:
+        venv = root / candidate.split("/")[0]
+        if (
+            (root / candidate).is_file()
+            and (venv / "pyvenv.cfg").is_file()
+            and not _committed(root, candidate)
+        ):
+            return str(root / candidate)
+    return sys.executable
+
+
 def resolve_cmd(cmd: tuple[str, ...], root: Path) -> list[str]:
-    """Find the executable the way a shell would (``npm`` is ``npm.cmd`` on Windows)."""
-    exe = cmd[0]
+    """Find the executable the way a shell would (``npm`` is ``npm.cmd`` on Windows).
+
+    Only a name with a path separator (``./run.sh``, ``.venv/bin/python``) is looked up in
+    the repository. A bare name such as ``python`` always comes from ``PATH``, so a file
+    committed as ``python`` at the repository root cannot stand in for it.
+    """
+    exe = project_python(root) if cmd[0] == PYTHON_PLACEHOLDER else cmd[0]
+    has_sep = "/" in exe or "\\" in exe
     local = root / exe
-    found = str(local) if local.exists() else shutil.which(exe)
+    found = str(local) if has_sep and local.is_file() else shutil.which(exe)
     if found is None:
         raise FileNotFoundError(exe)
     return [found, *cmd[1:]]
@@ -45,9 +94,12 @@ def run_step(root: Path, step: CheckStep) -> StepResult:
             encoding="utf-8",
             errors="replace",
             check=False,
+            timeout=step.timeout,
         )
     except FileNotFoundError as error:
         return StepResult(step.name, False, (f"command not found: {error}",))
+    except subprocess.TimeoutExpired:
+        return StepResult(step.name, False, (f"timed out after {step.timeout}s",))
     lines = (proc.stdout + proc.stderr).splitlines()
     keep = re.compile(step.keep) if step.keep else None
     detail = [line for line in lines if keep and keep.search(line)][:MAX_DETAIL_LINES]
@@ -116,6 +168,30 @@ def format_report(results: list[StepResult]) -> str:
     return "\n".join(out)
 
 
+UNTRUSTED = (
+    f"{CONFIG_FILE} is not trusted (new, or changed since `sdd trust`). Its commands were "
+    f"not run. Review {CONFIG_FILE}, then run `sdd trust` (it asks for permission)."
+)
+
+
+def guard_step(cfg: Config) -> StepResult:
+    """Fail when a gate config file changed since the run started (or since ``sdd trust``).
+
+    Only during an active run: outside one, editing the project's config is ordinary work.
+    """
+    current = run_state.load(cfg.root)
+    if current is None or not current["active"]:
+        return StepResult("guard", True, ())
+    changed = trust.changed_guard(cfg.root, cfg.guard)
+    if not changed:
+        return StepResult("guard", True, ())
+    detail = [f"gate config changed during the run: {rel}" for rel in changed]
+    detail.append("revert it, or ask the user to review the change and run `sdd trust`")
+    return StepResult("guard", False, tuple(detail))
+
+
 def run_all(cfg: Config) -> list[StepResult]:
+    if not trust.config_trusted(cfg.root):
+        return [StepResult("trust", False, (UNTRUSTED,))]
     results = [run_step(cfg.root, step) for step in cfg.check]
-    return [*results, scan_wording(cfg.root, cfg.wording)]
+    return [*results, scan_wording(cfg.root, cfg.wording), guard_step(cfg)]

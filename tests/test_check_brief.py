@@ -1,11 +1,16 @@
+import json
 import sys
 from pathlib import Path
 
-from sdd_pilot import config
+import pytest
+
+from sdd_pilot import config, trust
+from sdd_pilot import state as run_state
 from sdd_pilot.brief import build_brief, signatures
 from sdd_pilot.check import (
     StepResult,
     format_report,
+    guard_step,
     resolve_cmd,
     run_all,
     run_step,
@@ -13,6 +18,8 @@ from sdd_pilot.check import (
     signature,
 )
 from sdd_pilot.config import CheckStep, Wording
+
+from .conftest import write_config
 
 PY = sys.executable
 
@@ -44,15 +51,29 @@ def test_missing_command_is_a_failure_not_a_crash(repo: Path) -> None:
     assert not result.ok and "command not found" in result.detail[0]
 
 
-def test_resolve_prefers_project_relative_path(repo: Path) -> None:
+def test_resolve_uses_project_path_only_with_a_separator(repo: Path) -> None:
     (repo / "tool.sh").write_text("")
-    assert resolve_cmd(("tool.sh", "-x"), repo) == [str(repo / "tool.sh"), "-x"]
+    assert resolve_cmd(("./tool.sh", "-x"), repo) == [str(repo / "./tool.sh"), "-x"]
+    with pytest.raises(FileNotFoundError):
+        resolve_cmd(("tool.sh",), repo)  # a bare name never resolves into the repository
+
+
+def test_untrusted_config_runs_no_commands(repo: Path) -> None:
+    marker = repo / "ran"
+    script = f"open({str(marker)!r}, 'w')"
+    (repo / "sdd.toml").write_text(
+        f'[[check]]\nname = "t"\ncmd = [{json.dumps(PY)}, "-c", {json.dumps(script)}]\n'
+    )
+    results = run_all(config.load(repo))
+    assert [r.name for r in results] == ["trust"] and not results[0].ok
+    assert "sdd trust" in results[0].detail[0]
+    assert not marker.exists()
 
 
 def test_run_all_uses_config(repo: Path) -> None:
     raw = {"check": [{"name": "t", "cmd": [PY, "-c", "pass"]}], "wording": {"banned": []}}
     results = run_all(config.from_dict(repo, raw))
-    assert [r.name for r in results] == ["t", "wording"] and all(r.ok for r in results)
+    assert [r.name for r in results] == ["t", "wording", "guard"] and all(r.ok for r in results)
 
 
 # --- wording ------------------------------------------------------------------
@@ -125,7 +146,13 @@ def test_brief_contains_only_relevant_context(repo: Path, cfg: config.Config) ->
     assert "REQ-009-01" in brief and "AC-01" in brief
     assert "### src/demo/demo.py\n(new file)" in brief
     assert "`bash .sdd/bin/sdd check`" in brief
-    assert "STATUS: done | blocked" in brief
+    assert "STATUS:" not in brief  # the report format lives in the cached agent prompt
+
+
+def test_report_format_lives_in_the_implementer_prompt() -> None:
+    prompt = (Path(__file__).parent.parent / "agents" / "implementer.md").read_text("utf-8")
+    for field in ("STATUS:", "TASKS:", "CHECK:", "ASSUMPTIONS:", "QUESTIONS:", "BRIEF GAPS:"):
+        assert field in prompt
 
 
 def test_brief_shows_sibling_modules_for_new_files(repo: Path, cfg: config.Config) -> None:
@@ -175,3 +202,75 @@ def test_brief_matches_dotted_name_to_file_in_plan(repo: Path, cfg: config.Confi
     )
     brief = build_brief(cfg, repo / "specs" / "009-demo", ["T-009-01"])
     assert "builds the greeting" in brief and "unrelated" not in brief
+
+
+# --- gate config guard ------------------------------------------------------------
+
+
+def test_gate_config_change_during_a_run_fails_the_check(repo: Path) -> None:
+    (repo / "pyproject.toml").write_text("[tool.coverage.report]\nfail_under = 85\n")
+    cfg = config.load(repo)
+    assert guard_step(cfg).ok  # no run yet
+    run_state.start(cfg, "009", check_branch=False)
+    assert guard_step(cfg).ok
+    (repo / "pyproject.toml").write_text("[tool.coverage.report]\nfail_under = 0\n")
+    result = guard_step(cfg)
+    assert not result.ok and "pyproject.toml" in result.detail[0]
+    assert "guard" in [r.name for r in run_all(cfg)]
+    trust.record_guard(repo, cfg.guard)  # what `sdd trust` does after the user reviews it
+    assert guard_step(cfg).ok
+
+
+def test_new_conftest_counts_as_a_gate_change(repo: Path) -> None:
+    cfg = config.load(repo)
+    run_state.start(cfg, "009", check_branch=False)
+    (repo / "conftest.py").write_text("collect_ignore_glob = ['*']\n")
+    assert not guard_step(cfg).ok
+
+
+def test_guard_is_off_outside_a_run(repo: Path) -> None:
+    cfg = config.load(repo)
+    run_state.start(cfg, "009", check_branch=False)
+    run_state.stop(repo)
+    (repo / "pyproject.toml").write_text("changed")
+    assert guard_step(cfg).ok
+
+
+def test_guard_files_are_configurable(repo: Path) -> None:
+    cfg = write_config(repo, '[project]\nguard = ["gate.cfg"]\n')
+    assert cfg.guard == ("gate.cfg",)
+
+
+def test_hanging_step_times_out(repo: Path) -> None:
+    step = CheckStep("slow", (PY, "-c", "import time; time.sleep(5)"), timeout=1)
+    result = run_step(repo, step)
+    assert not result.ok and "timed out after 1s" in result.detail[0]
+
+
+# --- brief parsing ----------------------------------------------------------------
+
+
+def test_signatures_include_async_and_survive_syntax_errors(tmp_path: Path) -> None:
+    good = tmp_path / "mod.py"
+    good.write_text("async def fetch(url: str) -> bytes:\n    '''Get it.'''\n")
+    assert signatures(good) == ["async def fetch(url: str) -> bytes  # Get it."]
+    bad = tmp_path / "broken.py"
+    bad.write_text("def broken(:\n")
+    assert signatures(bad)[0].startswith("(could not parse")
+
+
+def test_flat_layout_package_is_found_without_config(repo: Path) -> None:
+    pkg = repo / "mypkg"
+    pkg.mkdir()
+    (pkg / "core.py").write_text("def run() -> None: ...\n")
+    plan = repo / "specs" / "009-demo" / "plan.md"
+    plan.write_text("| `mypkg/core.py` | `make_demo` lives here |\n")
+    brief = build_brief(config.load(repo), repo / "specs" / "009-demo", ["T-009-02"])
+    assert "### mypkg/core.py\ndef run() -> None" in brief
+
+
+def test_plan_lines_are_capped(repo: Path) -> None:
+    plan = repo / "specs" / "009-demo" / "plan.md"
+    plan.write_text("".join(f"`features/demo` line {i}\n" for i in range(100)))
+    brief = build_brief(config.load(repo), repo / "specs" / "009-demo", ["T-009-03"])
+    assert "(+60 more lines cut; see BRIEF GAPS)" in brief

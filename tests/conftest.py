@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
+from sdd_pilot import config, trust
 
 TASKS = """\
 # Tasks 009: demo
@@ -25,6 +25,14 @@ SPEC = """\
 PLAN = "| `src/demo/demo.py` | `make_demo(df)` builds features |\nunrelated line\n"
 
 
+@pytest.fixture(autouse=True)
+def trust_home(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Keep the trust store out of the real home directory."""
+    home = tmp_path_factory.mktemp("sdd-home")
+    monkeypatch.setenv("SDD_HOME", str(home))
+    return home
+
+
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
     spec = tmp_path / "specs" / "009-demo"
@@ -33,7 +41,18 @@ def repo(tmp_path: Path) -> Path:
     (spec / "spec.md").write_text(SPEC, encoding="utf-8")
     (spec / "plan.md").write_text(PLAN, encoding="utf-8")
     (tmp_path / "sdd.toml").write_text("[brief]\ngraphify = false\n", encoding="utf-8")
+    trust.trust_config(tmp_path)
+    from sdd_pilot.state import approval_digest
+
+    trust.record_approval(tmp_path, "009", approval_digest(spec))
     return tmp_path
+
+
+def write_config(repo: Path, text: str) -> config.Config:
+    """Replace sdd.toml, trust it (as the user would) and load it."""
+    (repo / "sdd.toml").write_text(text, encoding="utf-8")
+    trust.trust_config(repo)
+    return config.load(repo)
 
 
 @pytest.fixture
@@ -43,3 +62,36 @@ def cfg(repo: Path) -> config.Config:
 
 def tasks_file(repo: Path) -> Path:
     return repo / "specs" / "009-demo" / "tasks.md"
+
+
+def tick(cfg: config.Config, task_id: str, human: bool = False) -> None:
+    """Tick a task as the loop would: its gate passed and its review was clean for this tree."""
+    from sdd_pilot import state as run_state
+
+    state = run_state.require(cfg.root)
+    now = run_state.tree(cfg.root, state)
+    state["gate"] = {"group": [task_id], "passed": now, "reviewed": now}
+    run_state.save(cfg.root, state)
+    run_state.complete(cfg, task_id, human)
+
+
+@pytest.fixture(autouse=True)
+def no_background_graph(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
+    """Tests never install graphify or spawn a background build; they record the request."""
+    from sdd_pilot import graph
+
+    calls: list[Path] = []
+
+    def fake_start(root: Path, entry: Path) -> bool:
+        calls.append(root)
+        return True
+
+    from sdd_pilot import prereqs
+
+    monkeypatch.setattr(
+        prereqs, "_real_bun_start", prereqs.start_background_bun_install, raising=False
+    )
+    monkeypatch.setattr(prereqs, "start_background_bun_install", lambda entry: False)
+    monkeypatch.setattr(graph, "_real_start", graph.start_background_sync, raising=False)
+    monkeypatch.setattr(graph, "start_background_sync", fake_start)
+    return calls

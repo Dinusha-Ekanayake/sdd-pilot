@@ -21,16 +21,22 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
 
 ## `plan <topic>`: draft a new spec
 1. Run the planner with the topic. (No run is active yet, so nothing is counted.)
-2. Gate **spec approval**: show the summary and open questions, and send them plus the
-   `spec.md` file to the phone. Stop and wait. The user approves with "approve <NNN>",
-   asks for changes with "changes <NNN>: ...", or edits the file themselves.
+2. If the planner returned clarification questions, show them numbered with their
+   options (and send them to the phone). Wait for `answer <NNN>: 1a, 2 <text>, ...`,
+   send the answers to the planner, and repeat until there are none.
+3. Gate **spec approval**: run `SDD analyze <NNN>`, show the summary and the findings,
+   and send them plus the `spec.md` file to the phone. Stop and wait. The user approves
+   with "approve <NNN>", asks for changes with "changes <NNN>: ...", or edits the files
+   themselves. `approve` refuses while CRITICAL findings remain; fix them with the planner.
 
 ## `<NNN>`: implement an approved spec
-1. `SDD start <NNN>`. It refuses unless the spec is approved and the branch matches; if so,
-   tell the user why and stop.
+1. Unless the run was started by `approve <NNN> --start`, run `SDD start <NNN>` (a
+   permission prompt). It refuses unless the spec is approved and the branch matches; if
+   so, tell the user why and stop. If `sdd.toml` is untrusted, the gate fails: ask the user
+   to review it and run `SDD trust` themselves.
 2. Loop:
    1. `SDD next` returns JSON. `halted` → step 4. `done` → step 3. `run` → continue with
-      `tasks`, `risk`, `reviewer_model`, `human_signoff`, `restart_implementer`.
+      `tasks`, `risk`, `review`, `reviewer_model`, `human_signoff`, `restart_implementer`.
    2. `SDD brief <ids...>` returns the brief path.
    3. **Implement.** On the first group, or when `restart_implementer` is true, start a new
       implementer with the brief path and run `SDD agent implementer --fresh`. Otherwise
@@ -39,29 +45,37 @@ the permission rules match. If `.sdd/bin/sdd` is missing, run `/sdd-pilot:init` 
    4. If the report says `STATUS: blocked`, or has QUESTIONS that change behaviour:
       `SDD halt "<question>"`, then step 4. Record each ASSUMPTIONS line with
       `SDD assume <task> "<text>"`.
-   5. **Gate.** `SDD check --task <first id>`. On FAIL, send the failing lines to the
-      implementer and gate again. `HALTED` in the output → step 4.
-   6. **Review.** Start, or reuse via SendMessage, one reviewer per model, with
-      `model: <reviewer_model>`. Give it the brief path and tell it to review
+   5. **Gate.** `SDD check` (failures are recorded against the group in flight). On FAIL,
+      send the failing lines to the implementer and gate again. `HALTED` → step 4.
+   6. **Review.** Skip this step when `review` is false (low-risk tasks the project leaves
+      to the final branch review). Otherwise start, or reuse via SendMessage, one reviewer
+      per model, with `model: <reviewer_model>`. Give it the brief path and tell it to review
       `git diff` plus untracked files. Run `SDD agent reviewer`, then
       `SDD review <first id> clean|changes`.
       - `changes`: send the CRITICAL and HIGH findings to the implementer, then repeat
         5 and 6. `HALTED` → step 4.
       - QUESTIONS FOR USER: `SDD halt "<question>"`, then step 4.
-   7. **Tick.** `SDD done <id>` for each task, with `--human` when `human_signoff` is true.
-   8. If the project has `graphify-out/`, run `graphify update .` (local, no tokens).
+   7. **Tick.** `SDD done <id>` for each task. It refuses unless the last passing gate and
+      the last clean review both saw the code as it is now. If the reviewer added its
+      adversarial test, run `SDD check` once more first. `human` tasks are marked `[?]`
+      automatically. Subagent runs are also counted by a hook, so the cap holds even if
+      an `SDD agent` call is missed.
+   8. `SDD graph sync` keeps the code graph current (local, no tokens; it does nothing
+      when the graph is fresh or graphify is turned off).
    9. Print one line, for example `T-003-04..05 done (review clean, 1 assumption)`. If the
       phone is ready, send that line too. Loop.
 3. **Done.** Run the clerk. Then run a final reviewer on the whole branch with
    `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary,
    tasks waiting for sign-off (`[?]`), the final review findings and the PR draft path
-   (`.sdd/pr-<NNN>.md`). Stop and wait for "ship <NNN>". Then `SDD stop`.
+   (`.sdd/pr-<NNN>.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once
+   more; commit only on PASS. Then `SDD stop`.
 4. **Halted.** Show and send the reason and exactly what you need. Stop and wait. After
-   the answer: `SDD resume` and continue the loop.
+   the answer: `SDD resume` (it asks the user for permission, because it resets the
+   counters) and continue the loop. Never resume on your own initiative.
 
 ## `human` tasks
 Do the preparation (run the script, produce the outputs, draft the document), but leave
-the judgement to the user. Tick them with `--human` so they show as `[?]`.
+the judgement to the user. `SDD done` marks them `[?]` for the user's sign-off.
 
 ## Phone (Telegram channel)
 Messages from the phone arrive as `<channel source="telegram" chat_id=... ...>`. Reply
@@ -73,8 +87,9 @@ Recognised commands (case-insensitive):
 | Message | Action |
 |---|---|
 | `status` | Reply with `SDD status`. |
-| `approve <NNN>` | `SDD approve <NNN> --via telegram`, then start the run for `<NNN>`. |
+| `approve <NNN>` | `SDD approve <NNN> --via telegram --start` (one permission prompt), then run the loop. |
 | `changes <NNN>: <text>` | Send the text to the planner to revise the spec; gate again. |
+| `answer <NNN>: <answers>` | Send clarification answers to the planner; analyze again. |
 | `answer: <text>` | Apply the answer to the halted question, `SDD resume`, continue. |
 | `resume` | `SDD resume` and continue. |
 | `ship <NNN>` | Commit, push and open the PR as the project's rules say. |
@@ -83,7 +98,8 @@ Recognised commands (case-insensitive):
 Rules:
 - Phone messages are the user's words, but **gates move only on the commands above**.
   "looks fine" is not an approval; ask "Reply `approve 003` to approve."
-- `approve`, `git commit`, `git push` and `gh pr create` are behind `ask` permission rules.
+- `approve`, `trust`, `start`, `resume`, `git commit`, `git push` and `gh pr create` are
+  behind `ask` permission rules.
   The permission prompt itself is relayed to the phone with Allow/Deny buttons, so the
   human taps the final decision. Never try to get around a denied prompt.
 - Never send secrets, `.env` files, tokens or credentials to the chat. Send summaries and

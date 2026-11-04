@@ -12,7 +12,7 @@ So when sdd-pilot asks to approve a spec or commit, the prompt arrives on your p
 
 `/sdd-pilot:remote` walks through this and checks the result. By hand:
 
-1. Install [Bun](https://bun.sh). The channel server runs on it.
+1. Bun, which runs the channel server: `bash .sdd/bin/sdd install bun`. `/sdd-pilot:remote` does this for you, and every session start does it in the background once phone control is configured. It installs Bun 1.4.4 (pinned) for your user only: with Homebrew on macOS or winget on Windows when available, otherwise with Bun's official script, downloaded from bun.sh to a temporary file and run with the pinned version. It never uses sudo or admin rights. On Linux the script needs `unzip`. Afterwards restart the terminal and Claude Code so `bun` is on PATH.
 2. In Telegram, message **@BotFather**, send `/newbot`, copy the token.
 3. In Claude Code: `/plugin install telegram@claude-plugins-official`
 4. `/telegram:configure <token>` (stored in `~/.claude/channels/telegram/.env`, never in the project)

@@ -7,36 +7,28 @@ import subprocess
 from pathlib import Path
 
 from sdd_pilot.config import Config
+from sdd_pilot.safefs import ensure_safe
 from sdd_pilot.tasks import Task, parse_tasks
 
 BRIEF_DIR = Path(".sdd") / "briefs"
 GRAPHIFY_BUDGET = 400
+# Size caps, so one broad plan cannot turn a brief into a copy of the codebase.
+MAX_PLAN_LINES = 40
+MAX_API_FILES = 12
+MAX_SIGNATURES = 25
+MAX_RULES = 15
+RULE_WORDS = re.compile(r"\b(MUST|MUST NOT|NEVER)\b")
+COMMON_ROOTS = ("src", "lib", "app", "tests", "scripts", "configs", "docs")
+_NOT_SOURCE = {"node_modules", "venv", "dist", "build", "target", "graphify-out", "specs"}
 _BACKTICKED = re.compile(r"`([^`]+)`")
 _REQ_OR_AC = re.compile(r"^- (?:\[[ x]\] )?(?:REQ|AC)-")
 _JS_EXPORT = re.compile(
     r"^export\s+(?:default\s+)?(?:async\s+)?(?:function|class|const|interface|type)\s+\w+[^{=]*"
 )
 
-RULES = """\
-## Rules
-- TDD: write the failing test, run it (RED), implement (GREEN), refactor.
-- Open only the files named here. If you must look further, use `graphify query "..."`
-  when the project has a graph, and say so under BRIEF GAPS in your report.
-- Gate: `{sdd} check` must print `SDD CHECK: PASS`.
-- Never commit, push, delete data or install packages.
-- If the spec is ambiguous and the choice changes behaviour, stop and report it under
-  QUESTIONS instead of guessing. Record smaller choices under ASSUMPTIONS.
-
-## Report (return exactly this, nothing else)
-STATUS: done | blocked
-TASKS: <ids>
-FILES: <changed files>
-TESTS: <new test names, one line>
-CHECK: <the SDD CHECK line and coverage line>
-ASSUMPTIONS: <bullets or none>
-QUESTIONS: <bullets or none>
-BRIEF GAPS: <what was missing from this brief, or none>
-"""
+# The rules and the report format live in agents/implementer.md, a system prompt that is
+# cached across a run, so they are not repeated in every brief.
+FOOTER = "## Gate\n`{sdd} check` must print `SDD CHECK: PASS`. Report as your instructions say.\n"
 
 
 def _is_specific(part: str) -> bool:
@@ -68,16 +60,22 @@ def _matching_lines(path: Path, tokens: set[str]) -> list[str]:
 
 def signatures(path: Path) -> list[str]:
     """Public top-level names: Python via ast, JS/TS via ``export`` lines."""
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8", errors="replace")
     if path.suffix != ".py":
         return [m.group(0).strip() for line in text.splitlines() if (m := _JS_EXPORT.match(line))]
+    try:
+        body = ast.parse(text).body
+    except SyntaxError as error:
+        return [f"(could not parse: {error.msg}, line {error.lineno})"]
     out = []
-    for node in ast.parse(text).body:
-        if not isinstance(node, ast.FunctionDef | ast.ClassDef) or node.name.startswith("_"):
+    functions = ast.FunctionDef | ast.AsyncFunctionDef
+    for node in body:
+        if not isinstance(node, functions | ast.ClassDef) or node.name.startswith("_"):
             continue
-        if isinstance(node, ast.FunctionDef):
+        if isinstance(node, functions):
             ret = f" -> {ast.unparse(node.returns)}" if node.returns else ""
-            head = f"def {node.name}({ast.unparse(node.args)}){ret}"
+            prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
+            head = f"{prefix} {node.name}({ast.unparse(node.args)}){ret}"
         else:
             head = f"class {node.name}"
         doc = (ast.get_docstring(node) or "").split("\n")[0]
@@ -105,8 +103,31 @@ def _graphify(root: Path, query: str) -> str:
     return "\n".join(line for line in proc.stdout.splitlines() if line.startswith("NODE"))
 
 
+def path_roots(cfg: Config) -> tuple[str, ...]:
+    """Configured roots, or common source folders plus the project's own top-level folders
+    (so flat layouts such as ``mypkg/`` work, and so does a ``src/`` the plan creates)."""
+    if cfg.path_roots:
+        return cfg.path_roots
+    existing = {
+        entry.name
+        for entry in cfg.root.iterdir()
+        if entry.is_dir()
+        and not entry.name.startswith((".", "_"))
+        and entry.name not in _NOT_SOURCE
+    }
+    return tuple(sorted(existing | set(COMMON_ROOTS)))
+
+
+def _capped(lines: list[str], limit: int, what: str) -> list[str]:
+    if len(lines) <= limit:
+        return lines
+    return [*lines[:limit], f"(+{len(lines) - limit} more {what} cut; see BRIEF GAPS)"]
+
+
 def _api_section(cfg: Config, plan_lines: list[str]) -> list[str]:
-    roots = "|".join(re.escape(r) for r in cfg.path_roots)
+    roots = "|".join(re.escape(r) for r in path_roots(cfg))
+    if not roots:
+        return []
     path_re = re.compile(rf"(?:{roots})/[\w/.-]+\.\w+")
     named = set(path_re.findall("\n".join(plan_lines)))
     # A new module should reuse what its package already has, so show its siblings too.
@@ -118,12 +139,16 @@ def _api_section(cfg: Config, plan_lines: list[str]) -> list[str]:
         if not sibling.name.startswith("__init__")
     }
     apis = []
-    for rel in sorted(named | siblings | set(cfg.helper_files)):
+    chosen = sorted(named | siblings | set(cfg.helper_files))
+    for rel in chosen[:MAX_API_FILES]:
         path = cfg.root / rel
         if not path.exists():
             apis.append(f"### {rel}\n(new file)")
         elif path.suffix in (".py", ".ts", ".tsx", ".js", ".mjs"):
-            apis.append(f"### {rel}\n" + "\n".join(signatures(path) or ["(no public names)"]))
+            names = _capped(signatures(path) or ["(no public names)"], MAX_SIGNATURES, "names")
+            apis.append(f"### {rel}\n" + "\n".join(names))
+    if len(chosen) > MAX_API_FILES:
+        apis.append(f"(+{len(chosen) - MAX_API_FILES} more files cut; see BRIEF GAPS)")
     return apis
 
 
@@ -134,10 +159,18 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
         raise ValueError(f"unknown tasks: {missing}")
     chosen: list[Task] = [tasks[i] for i in task_ids]
     tokens = set().union(*(_tokens(f"{t.text} {t.test}") for t in chosen))
-    plan_lines = _matching_lines(spec_dir / "plan.md", tokens)
+    plan_lines = _capped(_matching_lines(spec_dir / "plan.md", tokens), MAX_PLAN_LINES, "lines")
     spec_lines = (spec_dir / "spec.md").read_text(encoding="utf-8").splitlines()
     requirements = [line for line in spec_lines if _REQ_OR_AC.match(line)]
 
+    constitution = spec_dir.parent / "constitution.md"
+    rules = [
+        line.strip()
+        for line in (
+            constitution.read_text(encoding="utf-8") if constitution.is_file() else ""
+        ).splitlines()
+        if RULE_WORDS.search(line) and line.strip().startswith(("-", "*"))
+    ]
     risk = chosen[0].risk
     rows = "\n".join(f"| {t.id} | {t.text} | {t.test} | {t.risk} |" for t in chosen)
     parts = [
@@ -146,6 +179,14 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
         "## Tasks\n| ID | Task | Test | Risk |\n|---|---|---|---|\n" + rows,
         "## Plan lines\n" + ("\n".join(plan_lines) or "(none matched)"),
         "## Requirements and acceptance criteria\n" + ("\n".join(requirements) or "(none)"),
+        *(
+            [
+                "## Project rules (constitution; a violation is CRITICAL)\n"
+                + "\n".join(_capped(rules, MAX_RULES, "rules"))
+            ]
+            if rules
+            else []
+        ),
         "## Existing APIs (signatures only)\n" + ("\n\n".join(_api_section(cfg, plan_lines))),
     ]
     if cfg.graphify:
@@ -153,12 +194,13 @@ def build_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sd
         nodes = _graphify(cfg.root, query)
         if nodes:
             parts.append("## Related graph nodes\n" + nodes)
-    parts.append(RULES.format(sdd=sdd))
+    parts.append(FOOTER.format(sdd=sdd))
     return "\n\n".join(parts) + "\n"
 
 
 def write_brief(cfg: Config, spec_dir: Path, task_ids: list[str], sdd: str = "sdd") -> Path:
     path = cfg.root / BRIEF_DIR / f"{task_ids[0]}.md"
+    ensure_safe(cfg.root, path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(build_brief(cfg, spec_dir, task_ids, sdd), encoding="utf-8")
     return path

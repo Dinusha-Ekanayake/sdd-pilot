@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import shutil
@@ -7,15 +8,15 @@ from pathlib import Path
 
 import pytest
 
-from sdd_pilot import config
+from sdd_pilot import config, trust
 from sdd_pilot import state as run_state
 from sdd_pilot.__main__ import main
-from sdd_pilot.hooks import format_file, stop_decision, write_shim
-from sdd_pilot.init import ASK, init_project, render_config
+from sdd_pilot.hooks import format_file, guard_decision, stop_decision, write_shim
+from sdd_pilot.init import ASK, DENY, init_project, render_config
 from sdd_pilot.remote import telegram_status
 from sdd_pilot.tasks import parse_tasks
 
-from .conftest import tasks_file
+from .conftest import tasks_file, tick, write_config
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -38,7 +39,7 @@ def test_stop_hook_blocks_then_halts_without_progress(cfg: config.Config) -> Non
 def test_stop_hook_keeps_blocking_while_progress_is_made(cfg: config.Config) -> None:
     run_state.start(cfg, "009", check_branch=False)
     assert stop_decision(cfg) is not None
-    run_state.complete(cfg.root, "T-009-02", human=False)
+    tick(cfg, "T-009-02")
     assert stop_decision(cfg) is not None
 
 
@@ -46,7 +47,7 @@ def test_stop_hook_allows_stop_when_all_done(repo: Path, cfg: config.Config) -> 
     run_state.start(cfg, "009", check_branch=False)
     for task in parse_tasks(tasks_file(repo)):
         if task.pending:
-            run_state.complete(repo, task.id, human=False)
+            tick(cfg, task.id)
     assert stop_decision(cfg) is None
 
 
@@ -65,6 +66,48 @@ def test_format_hook_runs_configured_formatter(repo: Path) -> None:
     assert target.read_text() == "X = 1\n"
 
 
+@pytest.mark.parametrize(
+    "target", [".sdd/state.json", ".sdd/bin/sdd", ".sdd/../.sdd/approvals.log"]
+)
+def test_guard_denies_edits_to_run_state(repo: Path, cfg: config.Config, target: str) -> None:
+    for payload in (
+        {"tool_input": {"file_path": target}, "cwd": str(repo)},
+        {"tool_input": {"file_path": str(repo / target)}},
+    ):
+        decision = guard_decision(cfg, payload)
+        assert decision is not None
+        assert decision["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_guard_denies_edits_to_the_trust_store(cfg: config.Config) -> None:
+    payload = {"tool_input": {"file_path": str(trust.store_path())}}
+    assert guard_decision(cfg, payload) is not None
+
+
+@pytest.mark.parametrize("target", ["src/app.py", "sdd.toml", ".sddx/notes.md", ""])
+def test_guard_allows_other_files(repo: Path, cfg: config.Config, target: str) -> None:
+    assert guard_decision(cfg, {"tool_input": {"file_path": target}, "cwd": str(repo)}) is None
+    assert guard_decision(cfg, {}) is None
+
+
+def test_cli_guard_hook_prints_the_decision(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    payload = json.dumps({"tool_input": {"file_path": str(repo / ".sdd" / "state.json")}})
+    monkeypatch.setattr("sys.stdin", io.StringIO(payload))
+    assert main(["hook-guard"]) == 0
+    assert '"deny"' in capsys.readouterr().out
+
+
+def test_format_hook_does_nothing_for_an_untrusted_config(repo: Path) -> None:
+    target = repo / "mod.py"
+    target.write_text("x = 1\n")
+    (repo / "sdd.toml").write_text("# changed by a clone or an agent\n")
+    format_file(_formatter_cfg(repo), {"tool_input": {"file_path": str(target)}})
+    assert target.read_text() == "x = 1\n"
+
+
 def test_format_hook_ignores_other_suffixes_and_missing_files(repo: Path) -> None:
     notes = repo / "notes.md"
     notes.write_text("x = 1\n")
@@ -80,14 +123,34 @@ def test_format_hook_ignores_other_suffixes_and_missing_files(repo: Path) -> Non
 
 def test_init_creates_everything_once(tmp_path: Path) -> None:
     first = init_project(tmp_path, "python")
-    assert "wrote sdd.toml (python preset)" in first
+    assert "wrote sdd.toml (python project; checks: tests; trusted)" in first
+    assert trust.config_trusted(tmp_path)
     assert (tmp_path / "specs" / "_template" / "tasks.md").exists()
     assert ".sdd/" in (tmp_path / ".gitignore").read_text()
     settings = json.loads((tmp_path / ".claude" / "settings.json").read_text())
     assert set(ASK) <= set(settings["permissions"]["ask"])
+    assert set(DENY) <= set(settings["permissions"]["deny"])
     second = init_project(tmp_path, "python")
-    assert second == ["kept existing sdd.toml"]
+    assert second == ["kept existing sdd.toml"]  # still trusted, so no hint
     config.load(tmp_path)  # the written preset is valid
+
+
+def test_init_does_not_trust_an_existing_config(tmp_path: Path) -> None:
+    (tmp_path / "sdd.toml").write_text("[project]\n")
+    lines = init_project(tmp_path, "python")
+    assert "kept existing sdd.toml" in lines and not trust.config_trusted(tmp_path)
+    assert any("sdd trust" in line for line in lines)
+
+
+def test_cli_trust_records_the_config(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    (repo / "sdd.toml").write_text("[brief]\ngraphify = false\n# edited\n")
+    assert not trust.config_trusted(repo)
+    assert main(["trust"]) == 0
+    assert "trusted sdd.toml" in capsys.readouterr().out
+    assert trust.config_trusted(repo)
 
 
 def test_init_keeps_existing_settings(tmp_path: Path) -> None:
@@ -99,16 +162,16 @@ def test_init_keeps_existing_settings(tmp_path: Path) -> None:
     assert merged["model"] == "x" and "Bash(ls:*)" in merged["permissions"]["allow"]
 
 
-@pytest.mark.parametrize("preset", ["python", "node", "generic"])
+@pytest.mark.parametrize("preset", ["auto", "python", "node", "go", "rust", "generic"])
 def test_every_preset_is_valid_toml(tmp_path: Path, preset: str) -> None:
     (tmp_path / "sdd.toml").write_text(render_config(tmp_path, preset), encoding="utf-8")
     config.load(tmp_path)
 
 
-def test_python_preset_uses_project_venv(tmp_path: Path) -> None:
-    (tmp_path / ".venv" / "bin").mkdir(parents=True)
-    (tmp_path / ".venv" / "bin" / "python").write_text("")
-    assert '".venv/bin/python", "-m", "pytest"' in render_config(tmp_path, "python")
+def test_init_writes_the_chosen_specs_dir(tmp_path: Path) -> None:
+    init_project(tmp_path, "generic", specs_dir="docs/specs")
+    assert config.load(tmp_path).specs_dir == "docs/specs"
+    assert (tmp_path / "docs" / "specs" / "_template" / "spec.md").exists()
 
 
 def test_unknown_preset_rejected(tmp_path: Path) -> None:
@@ -163,9 +226,10 @@ def test_cli_round_trip(
     assert (repo / ".sdd" / "briefs" / "T-009-02.md").exists()
     for argv in (["agent", "implementer", "--fresh"], ["assume", "T-009-02", "x"]):
         assert main(argv) == 0
+    assert main(["done", "T-009-02"]) == 2  # no gate or review yet
+    assert main(["check"]) == 0
     assert main(["review", "T-009-02", "clean"]) == 0
     assert main(["done", "T-009-02"]) == 0
-    assert main(["check"]) == 0
     assert main(["status"]) == 0
     assert "1 done" not in capsys.readouterr().out.split("Spec 009:")[0]
     assert main(["halt", "need user"]) == 0
@@ -179,8 +243,8 @@ def test_cli_round_trip(
 
 
 def test_cli_check_records_failures(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    (repo / "sdd.toml").write_text(
-        f'[[check]]\nname = "t"\ncmd = [{json.dumps(sys.executable)}, "-c", "exit(1)"]\n'
+    write_config(
+        repo, f'[[check]]\nname = "t"\ncmd = [{json.dumps(sys.executable)}, "-c", "exit(1)"]\n'
     )
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["start", "009", "--no-branch-check"]) == 0
@@ -193,6 +257,17 @@ def test_cli_approve(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
     assert main(["approve", "009", "--via", "telegram"]) == 0
     assert (repo / ".sdd" / "approvals.log").exists()
+
+
+def test_cli_approve_and_start_in_one_prompt(repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    assert main(["approve", "009", "--start", "--no-branch-check"]) == 0
+    assert run_state.require(repo)["spec"] == "009"
+
+
+def test_everything_that_resets_or_approves_is_an_ask_rule() -> None:
+    gated = {rule.split()[-1].rstrip(":*)") for rule in ASK if ".sdd/bin/sdd" in rule}
+    assert gated == {"approve", "trust", "start", "resume"}
 
 
 def test_hooks_are_silent_outside_sdd_projects(
@@ -245,3 +320,40 @@ def test_launcher_and_shim_run_the_cli(repo: Path) -> None:
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "No SDD run in this project."
+
+
+def test_hook_errors_never_break_the_session(
+    repo: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(repo))
+    assert main(["start", "009", "--no-branch-check"]) == 0
+
+    def broken(cfg: config.Config) -> None:
+        raise KeyError("boom")
+
+    monkeypatch.setattr("sdd_pilot.__main__.stop_decision", broken)
+    assert main(["hook-stop"]) == 0
+    assert "sdd-pilot hook-stop: KeyError" in capsys.readouterr().err
+
+
+def test_format_hook_ignores_files_outside_the_project(
+    repo: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
+    outside = tmp_path_factory.mktemp("elsewhere") / "mod.py"
+    outside.write_text("x = 1\n")
+    format_file(_formatter_cfg(repo), {"tool_input": {"file_path": str(outside)}})
+    assert outside.read_text() == "x = 1\n"
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+def test_launcher_skips_python_for_hooks_outside_sdd_projects(tmp_path: Path) -> None:
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(tmp_path), "SDD_PYTHON": "no-such-python"}
+    proc = subprocess.run(
+        [str(shutil.which("bash")), str(ROOT / "bin" / "sdd"), "hook-format"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+    )
+    assert proc.returncode == 0 and proc.stdout == "" and proc.stderr == ""
