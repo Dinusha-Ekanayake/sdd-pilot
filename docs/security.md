@@ -40,7 +40,8 @@ Check commands with a path separator are looked up in the repository; bare names
 - The trust store is a plain file in your home directory. It keeps out file-tool edits from agents, not code that runs as you (see above) or someone with access to your account.
 - The `via` field in `.sdd/approvals.log` is reported by the caller. The permission prompt is the real gate.
 - Review verdicts are reported by the orchestrator from the reviewer's output.
-- graphify is pinned by version, not by hash. A trusted `sdd.toml` chooses the version.
+- graphify and each of its dependencies are pinned to exact versions (`specsteward/graphify-constraints.txt`); PyPI never replaces a published version's files. Wheels are not hash-pinned, because they differ per platform. A version chosen in `sdd.toml` installs without the lock.
+- Bun's install script is fetched from the pinned release tag and checked against its pinned sha256 before it runs; the script then downloads Bun's release archive over HTTPS.
 
 ## Telegram
 

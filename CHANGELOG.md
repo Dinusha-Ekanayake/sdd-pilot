@@ -40,6 +40,7 @@
 - Clarify step: the planner asks up to five `[NEEDS CLARIFICATION]` questions before approval; answer with `answer <NNN>: ...`, also from the phone.
 - `sdd approve <NNN> --start`: approve and start in one permission prompt.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
+- Verified installs: Bun's install script comes from the pinned release tag and must match its pinned sha256; graphify installs with every dependency at an exact version (checked in CI on Linux, macOS and Windows).
 - Token meter: the run's tokens (session and subagents) in `sdd status`, the status line and the dashboard, and an optional `[limits] max_tokens` budget that halts the run.
 - Go and Rust presets.
 

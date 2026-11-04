@@ -88,15 +88,28 @@ def find_graphify() -> str | None:
     return None
 
 
+CONSTRAINTS = Path(__file__).resolve().parent / "graphify-constraints.txt"
+
+
 def install_commands(version: str) -> list[list[str]]:
+    """Each installer gets the pinned version and every dependency at an exact version.
+
+    The constraints apply to the version they were generated for; a version chosen in
+    sdd.toml installs without them (the user opted out of the tested set).
+    """
     spec = f"{PACKAGE}=={version}"
+    pinned = version == DEFAULT_VERSION and CONSTRAINTS.is_file()
+    lock = ["-c", str(CONSTRAINTS)] if pinned else []
     commands = []
     if shutil.which("uv"):
-        commands.append(["uv", "tool", "install", spec])
+        commands.append(["uv", "tool", "install", spec, *lock])
     if shutil.which("pipx"):
-        commands.append(["pipx", "install", spec])
+        pip_args = [f"--pip-args=-c {CONSTRAINTS}"] if pinned else []
+        commands.append(["pipx", "install", spec, *pip_args])
     # -I: isolated mode, so nothing from the working directory or PYTHON* variables is used.
-    commands.append([sys.executable, "-I", "-m", "pip", "install", "--user", "--quiet", spec])
+    commands.append(
+        [sys.executable, "-I", "-m", "pip", "install", "--user", "--quiet", spec, *lock]
+    )
     return commands
 
 

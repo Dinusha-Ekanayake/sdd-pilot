@@ -224,3 +224,29 @@ def test_untrusted_config_never_syncs_or_installs(
     assert no_background_graph == []
     assert main(["graph", "sync"]) == 2
     assert "not trusted" in capsys.readouterr().err
+
+
+def test_installs_use_the_exact_dependency_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    from specsteward.config import GRAPHIFY_VERSION
+
+    monkeypatch.setattr(
+        graph.shutil, "which", lambda name: name if name in ("uv", "pipx") else None
+    )
+    uv, pipx, pip = graph.install_commands(GRAPHIFY_VERSION)
+    assert uv[-2:] == ["-c", str(graph.CONSTRAINTS)]
+    assert pipx[-1] == f"--pip-args=-c {graph.CONSTRAINTS}"
+    assert pip[-2:] == ["-c", str(graph.CONSTRAINTS)]
+    other = graph.install_commands("9.9.9")  # a version chosen in sdd.toml: no lock
+    assert all("-c" not in cmd for cmd in other)
+
+
+def test_the_lock_pins_graphify_and_every_dependency_exactly() -> None:
+    from specsteward.config import GRAPHIFY_VERSION
+
+    lines = [
+        line.strip()
+        for line in graph.CONSTRAINTS.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    ]
+    assert f"graphifyy=={GRAPHIFY_VERSION}" in lines
+    assert len(lines) > 10 and all("==" in line for line in lines)
