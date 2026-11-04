@@ -173,7 +173,7 @@ def test_summary_for_phone(repo: Path, cfg: config.Config) -> None:
     tick(cfg, "T-009-06")
     run_state.halt(repo, run_state.require(repo), "need a decision")
     text = run_state.summary(repo)
-    assert "Spec 009: 1 done, 1 waiting for you, 4 open. Running." in text
+    assert "Spec 009: 1 done, 1 waiting for you, 4 open. Halted." in text
     assert "Halted: need a decision" in text
     assert "Sign-off needed: T-009-06" in text
     assert "T-009-02: right-closed windows" in text
@@ -282,3 +282,13 @@ def test_high_risk_still_needs_review_when_low_is_skipped(repo: Path) -> None:
 def test_only_low_risk_reviews_can_be_skipped(repo: Path) -> None:
     with pytest.raises(ValueError, match="only contain 'low'"):
         write_config(repo, '[review]\nskip = ["high"]\n')
+
+
+def test_summary_says_what_comes_next_and_hides_empty_usage(cfg: config.Config) -> None:
+    _start(cfg)
+    for task in parse_tasks(tasks_file(cfg.root)):
+        if task.pending:
+            tick(cfg, task.id)
+    text = run_state.summary(cfg.root)
+    assert "All tasks done; converge, then ship." in text
+    assert "Used:" not in text  # nothing measured yet

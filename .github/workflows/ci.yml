@@ -57,3 +57,21 @@ jobs:
           uv tool install "graphifyy==$version" -c specsteward/graphify-constraints.txt
           # uv's tool folder is not on PATH on every runner (Windows); specsteward looks there too.
           "$(uv tool dir --bin)/graphify" --help >/dev/null
+
+  e2e:
+    # The full scripted flow on a copy of the example: init, trust, doctor, analyze,
+    # approve --start, next, brief, RED/GREEN gate, review, done, converge, views.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pytest
+      - name: End-to-end run of the example
+        shell: bash
+        run: bash scripts/e2e.sh
