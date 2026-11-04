@@ -39,6 +39,7 @@
 - Project constitution (`specs/constitution.md`): its MUST rules go into every brief; violations are CRITICAL in review.
 - Clarify step: the planner asks up to five `[NEEDS CLARIFICATION]` questions before approval; answer with `answer <NNN>: ...`, also from the phone.
 - `sdd approve <NNN> --start`: approve and start in one permission prompt.
+- Docs: a step-by-step setup guide (`docs/setup-guide.md`) and an FAQ with troubleshooting for every error and halt message (`docs/faq.md`).
 - `sdd --version`, help text for every command, plugin manifest homepage and repository, a supported-versions table in SECURITY.md, a privacy note, CodeQL code scanning, and least-privilege CI permissions.
 - `[review] skip = ["low"]` to leave low-risk tasks to the final branch review.
 - Phone control over Discord as well as Telegram, through Anthropic's official channel plugins: `sdd remote` reports the ready channel (and others set up), `sdd doctor` checks each, Bun is installed for either; `docs/telegram.md` is now `docs/phone.md`.

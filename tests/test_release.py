@@ -129,3 +129,34 @@ def test_manifests_point_at_the_repository() -> None:
     market = json.loads((ROOT / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8"))
     assert plugin["repository"].endswith("/specsteward") and plugin["license"] == "MIT"
     assert market["plugins"][0]["version"] == plugin["version"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "same check failure twice",
+        "fix attempt cap reached",
+        "review round cap reached with open findings",
+        "agent run cap reached",
+        "token budget reached",
+        "no task completed since the last automatic continue",
+        "tasks.md changed outside sdd done",
+        "converge round cap reached",
+        "resolve the CRITICAL findings first",
+        "says approved but has no recorded approval",
+        "changed after it was approved",
+        "no passing sdd check for the code as it is now",
+        "no clean review for the code as it is now",
+        "files changed while the gate ran",
+        "gate config changed during the run",
+        "the gate has no [[check]] steps",
+        "trust store is locked",
+        "Bun is installed but not on PATH",
+    ],
+)
+def test_every_halt_and_error_is_explained_in_the_faq(message: str) -> None:
+    """The FAQ quotes messages exactly; this keeps it from going stale."""
+    source = "\n".join(p.read_text(encoding="utf-8") for p in (ROOT / "specsteward").glob("*.py"))
+    faq = (ROOT / "docs" / "faq.md").read_text(encoding="utf-8").replace("`", "")
+    assert message in source.replace("`", ""), f"message no longer in code: {message}"
+    assert message in faq, f"FAQ does not explain: {message}"
