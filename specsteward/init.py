@@ -28,6 +28,7 @@ ASK = [
     f"Bash({SDD} trust:*)",
     f"Bash({SDD} start:*)",  # a restart would reset the caps
     f"Bash({SDD} resume:*)",  # clears a halt and the per-task counters
+    f"Bash({SDD} signoff:*)",  # the user's judgement on a human task
     "Bash(git commit:*)",
     "Bash(git push:*)",
     "Bash(gh pr create:*)",

@@ -17,7 +17,7 @@ HEADINGS = (
 MEMBERS = {
     "setup": ("init", "trust", "doctor", "install"),
     "specs": ("analyze", "approve", "worktree"),
-    "running a spec": ("start", "next", "halt", "resume", "stop"),
+    "running a spec": ("start", "next", "halt", "resume", "signoff", "claim", "stop"),
     "views and status": ("status", "dashboard", "statusline", "graph", "remote"),
     "used by the agents during a run": (
         "agent",
@@ -55,6 +55,9 @@ FROZEN_HELP = {
     "next": "the next task group to run, or halted / done",
     "resume": "clear a halt after the user dealt with it (asks for permission)",
     "stop": "end the run",
+    # added on main after spec 001 was approved (sessions and human sign-off)
+    "signoff": "sign off a human task waiting at [?] (asks you)",
+    "claim": "continue an active run from this Claude Code session",
     "remote": "phone control status (Telegram or Discord)",
 }
 

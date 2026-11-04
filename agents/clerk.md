@@ -11,7 +11,8 @@ You do the clerical close-out for one spec. You get the spec number and a short 
    section, matching the existing style.
 2. If the project keeps a dev log (look for `DEVLOG.md` or `docs/logs/`), append a dated
    entry in the same format as the last one.
-3. Write a PR description draft to `.sdd/pr-<NNN>.md`: summary, changes, test plan
+3. Write a PR description draft to `<specs_dir>/<NNN>-<slug>/pr.md` (next to the spec;
+   `.sdd/` is run state and closed to file tools): summary, changes, test plan
    checklist. Use `git log <base>..HEAD --oneline` and `git diff <base> --stat` for facts,
    where `<base>` is the branch named in the spec or `main`.
 

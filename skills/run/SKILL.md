@@ -36,7 +36,10 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    themselves. `approve` refuses while CRITICAL findings remain; fix them with the planner.
 
 ## `<NNN>`: implement an approved spec
-1. Unless the run was started by `approve <NNN> --start`, run `SDD start <NNN>` (a
+1. A run belongs to the session that starts it. If `SDD start` says a run is already
+   active and the session-start note says it belongs to another session, run `SDD claim`
+   to continue it here instead (for example after restarting Claude Code).
+   Unless the run was started by `approve <NNN> --start`, run `SDD start <NNN>` (a
    permission prompt). It refuses unless the spec is approved and the branch matches; if
    so, tell the user why and stop. If `sdd.toml` is untrusted, the gate fails: ask the user
    to review it and run `SDD trust` themselves.
@@ -51,8 +54,9 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    4. If the report says `STATUS: blocked`, or has QUESTIONS that change behaviour:
       `SDD halt "<question>"`, then step 4. Record each ASSUMPTIONS line with
       `SDD assume <task> "<text>"`.
-   5. **Gate.** `SDD check` (failures are recorded against the group in flight). On FAIL,
-      send the failing lines to the implementer and gate again. `HALTED` → step 4.
+   5. **Gate.** `SDD check --task <first id>` (only this run of the check counts failures
+      toward the caps; the implementer's own checks while it works do not). On FAIL, send
+      the failing lines to the implementer and gate again. `HALTED` → step 4.
    6. **Review.** Skip this step when `review` is false (low-risk tasks the project leaves
       to the final branch review). Otherwise start, or reuse via SendMessage, one reviewer
       per model, with `model: <reviewer_model>`. Give it the brief path and tell it to review
@@ -81,7 +85,7 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    Then run the clerk, and a final reviewer on the whole branch with
    `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary,
    tasks waiting for sign-off (`[?]`), the final review findings and the PR draft path
-   (`.sdd/pr-<NNN>.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once
+   (`<specs_dir>/<NNN>-*/pr.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once
    more; commit only on PASS. Then `SDD stop`.
 4. **Halted.** Show and send the reason and exactly what you need. Stop and wait. After
    the answer: `SDD resume` (it asks the user for permission, because it resets the
@@ -89,7 +93,9 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
 
 ## `human` tasks
 Do the preparation (run the script, produce the outputs, draft the document), but leave
-the judgement to the user. `SDD done` marks them `[?]` for the user's sign-off.
+the judgement to the user. `SDD done` marks them `[?]`. Show the user what you prepared;
+they accept it with `signoff <task>`, and you run `SDD signoff <task>` (a permission
+prompt). Never edit the Status cell yourself.
 
 ## Phone (Telegram or Discord channel)
 Messages from the phone arrive as `<channel source="telegram" chat_id=... ...>` or
@@ -108,6 +114,7 @@ Recognised commands (case-insensitive):
 | `resume` | `SDD resume` and continue. |
 | `ship <NNN>` | Commit, push and open the PR as the project's rules say. |
 | `stop` | `SDD halt "stopped from phone"` and reply with the status. |
+| `signoff <task>` | `SDD signoff <task>` (a permission prompt): the user accepts a `[?]` human task. |
 
 Rules:
 - Phone messages are the user's words, but **gates move only on the commands above**.
@@ -119,4 +126,6 @@ Rules:
 - Never send secrets, `.env` files, tokens or credentials to the chat. Send summaries and
   spec, plan or report files only.
 - Keep phone messages short: at most about 10 lines plus attachments.
+- Start every phone message with `[<project folder name>]`, so the user can tell projects
+  apart when they run specsteward in more than one.
 - Commit messages and PR bodies never carry AI attribution unless the project asks.
