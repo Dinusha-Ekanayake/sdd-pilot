@@ -42,6 +42,9 @@ Yes. Each project keeps its own run in its own `.sdd/`, and trust and approvals 
 **What if two Claude Code sessions are open on the same project?**
 A run belongs to the session that started, resumed or claimed it. Only that session is told to continue, and only its subagents and tokens count. Other sessions are told the run belongs to another session. To continue it in a new session (for example after restarting Claude Code), run `bash .sdd/bin/sdd claim`.
 
+**A task shows `[?]`. How do I accept it?**
+It is a human task waiting for your judgement. Look at what was prepared, then run `bash .sdd/bin/sdd signoff T-003-06` (or send `signoff T-003-06` from your phone). It asks for your permission. Do not edit `tasks.md` by hand: that halts the run as a table changed outside `sdd done`.
+
 **How do I stop a run?**
 `bash .sdd/bin/sdd halt "reason"` pauses it; `bash .sdd/bin/sdd stop` ends it. From the phone, send `stop`.
 

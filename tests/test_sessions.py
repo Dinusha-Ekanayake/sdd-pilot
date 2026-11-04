@@ -261,3 +261,33 @@ def test_implementer_checks_while_working_never_halt_the_run(
     assert main(["check", "--task", "T-009-02"]) == 1  # the orchestrator's gate counts
     assert main(["check", "--task", "T-009-02"]) == 1
     assert "same check failure twice" in run_state.require(repo)["halted"]
+
+
+# --- the user's sign-off on human tasks --------------------------------------------------
+
+
+def test_signoff_turns_a_waiting_human_task_into_done(cfg: config.Config) -> None:
+    from specsteward.tasks import parse_tasks
+
+    from .conftest import tasks_file
+
+    _start(cfg)
+    tick(cfg, "T-009-06")  # human risk: prepared, waiting at [?]
+    run_state.signoff(cfg, "T-009-06")
+    statuses = {t.id: t.status for t in parse_tasks(tasks_file(cfg.root))}
+    assert statuses["T-009-06"] == "[x]"
+    assert run_state.integrity_problem(cfg, run_state.require(cfg.root)) is None  # no alarm
+
+
+def test_signoff_only_for_tasks_waiting_at_question_mark(cfg: config.Config) -> None:
+    _start(cfg)
+    with pytest.raises(ValueError, match="not waiting for sign-off"):
+        run_state.signoff(cfg, "T-009-02")  # still open
+    with pytest.raises(ValueError, match="not waiting for sign-off"):
+        run_state.signoff(cfg, "T-009-99")
+
+
+def test_signoff_is_a_gate() -> None:
+    from specsteward.init import ASK
+
+    assert "Bash(bash .sdd/bin/sdd signoff:*)" in ASK

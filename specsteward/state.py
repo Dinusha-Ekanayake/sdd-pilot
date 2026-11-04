@@ -564,6 +564,28 @@ def complete(cfg: Config, task_id: str, human: bool = False) -> State:
     return state
 
 
+def signoff(cfg: Config, task_id: str) -> State:
+    """The user's sign-off on a human task: ``[?]`` becomes ``[x]``.
+
+    Keep it behind an ``ask`` rule: it is the user's judgement, and editing tasks.md by
+    hand instead would halt the run as a table changed outside ``sdd done``.
+    """
+    state = require(cfg.root)
+    problem = integrity_problem(cfg, state)
+    if problem:
+        raise ValueError(problem)
+    path = tasks_path(cfg.root, state)
+    status = {t.id: t.status for t in parse_tasks(path)}.get(task_id)
+    if status != HUMAN:
+        raise ValueError(f"{task_id} is not waiting for sign-off (status {status or 'unknown'})")
+    ensure_safe(cfg.root, path)
+    set_status(path, task_id, DONE)
+    ticks = trust.recorded_ticks(cfg.root, state["spec"]) or {}
+    trust.record_ticks(cfg.root, state["spec"], {**ticks, task_id: DONE})
+    save(cfg.root, state)
+    return state
+
+
 def claim(root: Path) -> State:
     """Make the calling session the run's owner (recorded by the PostToolUse hook)."""
     return require(root)

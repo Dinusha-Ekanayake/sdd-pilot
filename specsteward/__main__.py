@@ -115,6 +115,8 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("halt", help="pause the run with a reason for the user").add_argument("reason")
     status = sub.add_parser("status", help="progress, halt reason, assumptions, tokens")
     status.add_argument("--json", action="store_true")
+    signoff = sub.add_parser("signoff", help="sign off a human task waiting at [?] (asks you)")
+    signoff.add_argument("task")
     sub.add_parser("claim", help="continue an active run from this Claude Code session")
     sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
     graph_cmd = sub.add_parser("graph", help="code graph: show its status, or sync it now")
@@ -335,6 +337,7 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
         "agent": lambda: run_state.record_agent(cfg, args.role, args.fresh),
         "review": lambda: run_state.record_review(cfg, args.task, args.verdict),
         "done": lambda: run_state.complete(cfg, args.task, args.human),
+        "signoff": lambda: run_state.signoff(cfg, args.task),
         "assume": lambda: run_state.record_assumption(root, args.task, args.text),
         "halt": lambda: run_state.halt(root, run_state.require(root), args.reason),
         "resume": lambda: run_state.resume(root),

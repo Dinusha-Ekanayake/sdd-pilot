@@ -93,7 +93,9 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
 
 ## `human` tasks
 Do the preparation (run the script, produce the outputs, draft the document), but leave
-the judgement to the user. `SDD done` marks them `[?]` for the user's sign-off.
+the judgement to the user. `SDD done` marks them `[?]`. Show the user what you prepared;
+they accept it with `signoff <task>`, and you run `SDD signoff <task>` (a permission
+prompt). Never edit the Status cell yourself.
 
 ## Phone (Telegram or Discord channel)
 Messages from the phone arrive as `<channel source="telegram" chat_id=... ...>` or
@@ -112,6 +114,7 @@ Recognised commands (case-insensitive):
 | `resume` | `SDD resume` and continue. |
 | `ship <NNN>` | Commit, push and open the PR as the project's rules say. |
 | `stop` | `SDD halt "stopped from phone"` and reply with the status. |
+| `signoff <task>` | `SDD signoff <task>` (a permission prompt): the user accepts a `[?]` human task. |
 
 Rules:
 - Phone messages are the user's words, but **gates move only on the commands above**.
