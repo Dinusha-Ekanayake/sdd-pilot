@@ -56,8 +56,90 @@ def _start_dir() -> Path:
     return Path(os.environ.get("CLAUDE_PROJECT_DIR") or Path.cwd())
 
 
+COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
+    (
+        "setup",
+        (
+            ("init", "set up sdd.toml, templates and permissions"),
+            ("trust", "trust the current sdd.toml (keep behind an ask rule)"),
+            ("doctor", "check the setup and say how to fix problems"),
+            ("install", "install a prerequisite (bun, for phone control)"),
+        ),
+    ),
+    (
+        "specs",
+        (
+            ("analyze", "check a spec, plan and tasks before approval"),
+            ("approve", "mark a spec approved (keep behind an ask rule)"),
+            ("worktree", "a parallel git worktree for one spec"),
+        ),
+    ),
+    (
+        "running a spec",
+        (
+            ("start", "start a run for an approved spec"),
+            ("next", "the next task group to run, or halted / done"),
+            ("halt", "pause the run with a reason for the user"),
+            ("resume", "clear a halt after the user dealt with it (asks for permission)"),
+            ("signoff", "sign off a human task waiting at [?] (asks you)"),
+            ("claim", "continue an active run from this Claude Code session"),
+            ("stop", "end the run"),
+        ),
+    ),
+    (
+        "views and status",
+        (
+            ("status", "progress, halt reason, assumptions, tokens"),
+            ("dashboard", "write .sdd/dashboard.html and print its path"),
+            ("statusline", "one line for Claude Code's status line"),
+            ("graph", "code graph: show its status, or sync it now"),
+            ("remote", "phone control status (Telegram or Discord)"),
+        ),
+    ),
+    (
+        "used by the agents during a run",
+        (
+            ("agent", "count a subagent run"),
+            ("brief", "write .sdd/briefs/<first-id>.md"),
+            ("check", "run the quality gate"),
+            ("review", "record the reviewer's verdict for the group"),
+            ("done", "tick a task (needs a passing gate and review)"),
+            ("assume", "log an assumption the implementer made"),
+            ("converge", "count a converge pass and print the next task id"),
+        ),
+    ),
+)
+
+
+def _help(name: str) -> str:
+    """The one-line help of a public command, from COMMAND_GROUPS."""
+    for _, commands in COMMAND_GROUPS:
+        for command, text in commands:
+            if command == name:
+                return text
+    raise KeyError(name)
+
+
+def _grouped_commands() -> str:
+    """The command list for `sdd --help`, under one heading per group."""
+    width = max(len(name) for _, commands in COMMAND_GROUPS for name, _ in commands)
+    blocks = []
+    for heading, commands in COMMAND_GROUPS:
+        lines = [f"  {name:<{width}}  {text}" for name, text in commands]
+        blocks.append("\n".join([f"{heading}:", *lines]))
+    return "\n\n".join(blocks)
+
+
 class _Parser(argparse.ArgumentParser):
     """Plain messages for unknown commands, without the internal hook names."""
+
+    def format_help(self) -> str:
+        text = super().format_help()
+        if self.prog != "sdd":  # only the top level lists the grouped commands
+            return text
+        text = text.replace("[--version]\n", "[--version] <command> ...\n", 1)
+        head, sep, tail = text.partition("\noptions:")
+        return f"{head}\n{_grouped_commands()}\n{sep}{tail}"
 
     def error(self, message: str) -> NoReturn:
         if "invalid choice" in message and "<command>" in message:
@@ -69,71 +151,69 @@ class _Parser(argparse.ArgumentParser):
 def _parser() -> argparse.ArgumentParser:
     parser = _Parser(
         prog="sdd",
+        usage="sdd [-h] [--version] <command> ...",
         description="specsteward: spec-driven runs for Claude Code, with human gates.",
         epilog="In a project, run it as `bash .sdd/bin/sdd <command>`. Docs: "
         "https://github.com/Dinusha-Ekanayake/specsteward",
     )
     parser.add_argument("--version", action="version", version=f"specsteward {version()}")
-    sub = parser.add_subparsers(dest="command", required=True, metavar="<command>")
-    init = sub.add_parser("init", help="set up sdd.toml, templates and permissions")
+    sub = parser.add_subparsers(
+        dest="command", prog="sdd", required=True, metavar="<command>", help=argparse.SUPPRESS
+    )
+    init = sub.add_parser("init", help=_help("init"))
     init.add_argument("--preset", choices=PRESETS, default="auto")
     init.add_argument("--specs-dir", default="specs")
     init.add_argument("--force", action="store_true")
     init.add_argument("--statusline", action="store_true", help="show the run in the status line")
-    check = sub.add_parser("check", help="run the quality gate")
+    check = sub.add_parser("check", help=_help("check"))
     check.add_argument(
         "--task", help="the orchestrator's gate: count failures for this task's caps"
     )
-    brief = sub.add_parser("brief", help="write .sdd/briefs/<first-id>.md")
+    brief = sub.add_parser("brief", help=_help("brief"))
     brief.add_argument("tasks", nargs="+")
-    start = sub.add_parser("start", help="start a run for an approved spec")
+    start = sub.add_parser("start", help=_help("start"))
     start.add_argument("spec")
     start.add_argument("--no-branch-check", action="store_true")
-    approve = sub.add_parser("approve", help="mark a spec approved (keep behind an ask rule)")
+    approve = sub.add_parser("approve", help=_help("approve"))
     approve.add_argument("spec")
     approve.add_argument("--via", default="terminal")
     approve.add_argument("--start", action="store_true", help="start the run right after")
     approve.add_argument("--no-branch-check", action="store_true")
     approve.add_argument("--anyway", action="store_true", help="approve despite CRITICAL findings")
-    worktree = sub.add_parser("worktree", help="a parallel git worktree for one spec")
+    worktree = sub.add_parser("worktree", help=_help("worktree"))
     worktree.add_argument("spec")
-    sub.add_parser("converge", help="count a converge pass and print the next task id")
-    analyze_cmd = sub.add_parser("analyze", help="check a spec, plan and tasks before approval")
+    sub.add_parser("converge", help=_help("converge"))
+    analyze_cmd = sub.add_parser("analyze", help=_help("analyze"))
     analyze_cmd.add_argument("spec")
-    agent = sub.add_parser("agent", help="count a subagent run")
+    agent = sub.add_parser("agent", help=_help("agent"))
     agent.add_argument("role", choices=("planner", "implementer", "reviewer", "converger", "clerk"))
     agent.add_argument("--fresh", action="store_true")
-    review = sub.add_parser("review", help="record the reviewer's verdict for the group")
+    review = sub.add_parser("review", help=_help("review"))
     review.add_argument("task")
     review.add_argument("verdict", choices=("clean", "changes"))
-    done = sub.add_parser("done", help="tick a task (needs a passing gate and review)")
+    done = sub.add_parser("done", help=_help("done"))
     done.add_argument("task")
     done.add_argument("--human", action="store_true", help="mark [?]: needs sign-off")
-    assume = sub.add_parser("assume", help="log an assumption the implementer made")
+    assume = sub.add_parser("assume", help=_help("assume"))
     assume.add_argument("task")
     assume.add_argument("text")
-    sub.add_parser("halt", help="pause the run with a reason for the user").add_argument("reason")
-    status = sub.add_parser("status", help="progress, halt reason, assumptions, tokens")
+    sub.add_parser("halt", help=_help("halt")).add_argument("reason")
+    status = sub.add_parser("status", help=_help("status"))
     status.add_argument("--json", action="store_true")
-    signoff = sub.add_parser("signoff", help="sign off a human task waiting at [?] (asks you)")
+    signoff = sub.add_parser("signoff", help=_help("signoff"))
     signoff.add_argument("task")
-    sub.add_parser("claim", help="continue an active run from this Claude Code session")
-    sub.add_parser("trust", help="trust the current sdd.toml (keep behind an ask rule)")
-    graph_cmd = sub.add_parser("graph", help="code graph: show its status, or sync it now")
+    sub.add_parser("claim", help=_help("claim"))
+    sub.add_parser("trust", help=_help("trust"))
+    graph_cmd = sub.add_parser("graph", help=_help("graph"))
     graph_cmd.add_argument("action", choices=("status", "sync"))
-    sub.add_parser("statusline", help="one line for Claude Code's status line")
-    sub.add_parser("dashboard", help="write .sdd/dashboard.html and print its path")
-    install = sub.add_parser("install", help="install a prerequisite (bun, for phone control)")
+    sub.add_parser("statusline", help=_help("statusline"))
+    sub.add_parser("dashboard", help=_help("dashboard"))
+    install = sub.add_parser("install", help=_help("install"))
     install.add_argument("tool", choices=("bun",))
-    doctor = sub.add_parser("doctor", help="check the setup and say how to fix problems")
+    doctor = sub.add_parser("doctor", help=_help("doctor"))
     doctor.add_argument("--json", action="store_true")
-    for name, text in (
-        ("next", "the next task group to run, or halted / done"),
-        ("resume", "clear a halt after the user dealt with it (asks for permission)"),
-        ("stop", "end the run"),
-        ("remote", "phone control status (Telegram or Discord)"),
-    ):
-        sub.add_parser(name, help=text)
+    for name in ("next", "resume", "stop", "remote"):
+        sub.add_parser(name, help=_help(name))
     for name in HOOKS:  # called by Claude Code, not by people
         sub.add_parser(name)
     return parser

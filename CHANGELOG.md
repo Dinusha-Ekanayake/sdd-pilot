@@ -55,6 +55,7 @@
 - Verified installs: Bun's install script comes from the pinned release tag and must match its pinned sha256; graphify installs with every dependency at an exact version (checked in CI on Linux, macOS and Windows).
 - Token meter: the run's tokens (session and subagents) in `sdd status`, the status line and the dashboard, and an optional `[limits] max_tokens` budget that halts the run.
 - Go and Rust presets.
+- `sdd --help` groups the commands under five headings (setup, specs, running a spec, views and status, used by the agents during a run); hooks stay hidden and each command's help is unchanged.
 
 ### Changed
 - Static rules and the report format moved from every brief into the implementer's agent prompt (about 140 words less per brief).
