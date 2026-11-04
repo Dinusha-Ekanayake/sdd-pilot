@@ -314,3 +314,20 @@ def test_launcher_runs_a_python_whose_path_has_a_space(repo: Path, tmp_path: Pat
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.startswith("specsteward ")
+
+
+def test_signoff_still_works_after_the_run_was_stopped(cfg: config.Config) -> None:
+    from specsteward.tasks import parse_tasks
+
+    from .conftest import tasks_file
+
+    _start(cfg)
+    tick(cfg, "T-009-06")
+    run_state.stop(cfg.root)  # shipped and stopped with the human task still at [?]
+    run_state.signoff(cfg, "T-009-06")
+    assert {t.id: t.status for t in parse_tasks(tasks_file(cfg.root))}["T-009-06"] == "[x]"
+
+
+def test_signoff_without_any_run_says_so(repo: Path, cfg: config.Config) -> None:
+    with pytest.raises(ValueError, match="no specsteward run in this project"):
+        run_state.signoff(cfg, "T-009-06")
