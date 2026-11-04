@@ -517,6 +517,14 @@ def stop(root: Path) -> State:
     return state
 
 
+def _phase(state: State, open_ids: list[str]) -> str:
+    if not state["active"]:
+        return "Stopped"
+    if state["halted"]:
+        return "Halted"
+    return "Running" if open_ids else "All tasks done; converge, then ship"
+
+
 def summary(root: Path) -> str:
     """A few plain lines for a phone screen: progress, halt reason, assumptions."""
     state = load(root)
@@ -528,14 +536,15 @@ def summary(root: Path) -> str:
     open_ids = [t.id for t in tasks if t.pending]
     lines = [
         f"Spec {state['spec']}: {len(done)} done, {len(waiting)} waiting for you, "
-        f"{len(open_ids)} open. {'Running' if state['active'] else 'Stopped'}.",
+        f"{len(open_ids)} open. {_phase(state, open_ids)}.",
     ]
     if state["halted"]:
         lines.append(f"Halted: {state['halted']}")
     if waiting:
         lines.append(f"Sign-off needed: {', '.join(waiting)}")
-    if state.get("usage"):
-        lines.append(f"Used: {usage.describe(state['usage']['totals'])}")
+    totals = (state.get("usage") or {}).get("totals") or {}
+    if any(totals.values()):
+        lines.append(f"Used: {usage.describe(totals)}")
     if open_ids:
         lines.append(f"Next: {open_ids[0]}")
     assumptions = [

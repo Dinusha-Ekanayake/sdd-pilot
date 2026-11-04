@@ -144,5 +144,10 @@ def init_project(
                 done.append(f"wrote {target.relative_to(root).as_posix()}")
     if _ensure_gitignore(root):
         done.append("added .sdd/ to .gitignore")
-    done += [f"permission {rule}" for rule in _merge_settings(root / ".claude" / "settings.json")]
+    rules = _merge_settings(root / ".claude" / "settings.json")
+    labels = {"allow": "runs without asking", "ask": "asks you first", "deny": "blocked"}
+    for key in ("allow", "ask", "deny"):
+        added = [rule.split(": ", 1)[1] for rule in rules if rule.startswith(f"{key}: ")]
+        if added:
+            done.append(f"permission rules ({labels[key]}): {', '.join(added)}")
     return done

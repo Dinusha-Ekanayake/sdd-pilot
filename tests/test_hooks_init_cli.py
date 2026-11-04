@@ -357,3 +357,10 @@ def test_launcher_skips_python_for_hooks_outside_sdd_projects(tmp_path: Path) ->
         check=False,
     )
     assert proc.returncode == 0 and proc.stdout == "" and proc.stderr == ""
+
+
+def test_init_explains_the_permission_rules_in_words(tmp_path: Path) -> None:
+    lines = init_project(tmp_path, "generic")
+    assert any(line.startswith("permission rules (asks you first): ") for line in lines)
+    assert any(line.startswith("permission rules (blocked): Edit(.sdd/**)") for line in lines)
+    assert not any(line.startswith("permission deny") for line in lines)
