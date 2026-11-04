@@ -68,6 +68,8 @@ def _parser() -> argparse.ArgumentParser:
     approve.add_argument("--start", action="store_true", help="start the run right after")
     approve.add_argument("--no-branch-check", action="store_true")
     approve.add_argument("--anyway", action="store_true", help="approve despite CRITICAL findings")
+    worktree = sub.add_parser("worktree", help="a parallel git worktree for one spec")
+    worktree.add_argument("spec")
     sub.add_parser("converge", help="count a converge pass and print the next task id")
     analyze_cmd = sub.add_parser("analyze", help="check a spec, plan and tasks before approval")
     analyze_cmd.add_argument("spec")
@@ -221,6 +223,12 @@ def _run_command(args: argparse.Namespace, cfg: cfg_mod.Config) -> int:
     root, command = cfg.root, args.command
     if command == "check":
         return _check(cfg, args.task)
+    if command == "worktree":
+        target = run_state.create_worktree(cfg, args.spec)
+        write_shim(target, LAUNCHER)
+        print(f"worktree ready: {target.as_posix()}")
+        print(f"open Claude Code there and run /specsteward:run {args.spec}")
+        return 0
     if command == "converge":
         print(json.dumps(run_state.converge_round(cfg)))
         return 0

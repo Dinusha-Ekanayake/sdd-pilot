@@ -45,7 +45,7 @@ While a run is active and tasks are open, the Stop hook asks Claude to continue,
 
 `.sdd/state.json` (git-ignored, written atomically) holds the run: spec, halt reason, agent-run counts, the group in flight with the tree fingerprints its gate and review saw, per-task failures, review rounds and assumptions. `.sdd/briefs/` holds briefs, `.sdd/approvals.log` the approvals, `.sdd/dashboard.html` a read-only view regenerated on every change, `.sdd/bin/sdd` a stable shim to the installed plugin version so permission rules do not change across plugin updates.
 
-Outside the repository, `~/.claude/specsteward/trust.json` holds what you trusted and approved: the hash of `sdd.toml`, of each approved `spec.md`, and of the gate config files at the start of a run. Agents working in the project cannot edit it.
+Outside the repository, `~/.claude/specsteward/trust.json` holds what you trusted and approved (per repository, so git worktrees share it; run ids, ticks and the gate baseline are per worktree): the hash of `sdd.toml`, of each approved `spec.md`, and of the gate config files at the start of a run. Agents working in the project cannot edit it.
 
 ## Briefs
 

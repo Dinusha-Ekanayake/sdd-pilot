@@ -5,6 +5,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import subprocess
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -129,6 +130,47 @@ def _appended_tasks(cfg: Config, spec: str, directory: Path) -> dict[str, str] |
     if any(status != TODO for status in new.values()):
         raise ValueError("tasks added during a run must be open ([ ])")
     return {**recorded, **new}
+
+
+def create_worktree(cfg: Config, spec: str) -> Path:
+    """A sibling git worktree on the spec's branch, so specs can run in parallel.
+
+    The worktree shares trust and approvals with this checkout; it gets its own run
+    state. ``sdd.toml`` and the spec are copied over when they are not committed yet.
+    """
+    directory = cfg.spec_dir(spec)
+    slug = directory.name.split("-", 1)[1]
+    is_fix = slug.startswith("fix-")
+    prefix = (cfg.fix_branch_prefix if is_fix else cfg.branch_prefix) or "feature/{spec}-"
+    branch = prefix.format(spec=spec) + (slug.removeprefix("fix-") if is_fix else slug)
+    target = cfg.root.parent / f"{cfg.root.name}-{spec}"
+    if target.exists():
+        raise ValueError(f"{target} already exists")
+    exists = (
+        subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", f"refs/heads/{branch}"],
+            cwd=cfg.root,
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+    args = [str(target), branch] if exists else ["-b", branch, str(target)]
+    proc = subprocess.run(
+        ["git", "worktree", "add", *args], cwd=cfg.root, capture_output=True, text=True, check=False
+    )
+    if proc.returncode != 0:
+        raise ValueError(f"git worktree add failed: {proc.stderr.strip()}")
+    for rel in (Path("sdd.toml"), directory.relative_to(cfg.root)):
+        source, copy = cfg.root / rel, target / rel
+        if copy.exists():
+            continue
+        ensure_safe(target, copy)
+        if source.is_dir():
+            shutil.copytree(source, copy)
+        else:
+            shutil.copy2(source, copy)
+    return target
 
 
 def converge_round(cfg: Config) -> dict[str, Any]:
