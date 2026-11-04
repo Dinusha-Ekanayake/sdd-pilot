@@ -36,6 +36,12 @@ Run the session on Sonnet; set `[limits] max_tokens` to stop a run at a budget; 
 **How do I see progress?**
 `bash .sdd/bin/sdd status`, the status line (`bash .sdd/bin/sdd init --statusline`), or open `.sdd/dashboard.html` (it refreshes itself).
 
+**Can I use specsteward in several projects at once?**
+Yes. Each project keeps its own run in its own `.sdd/`, and trust and approvals are stored per repository, so projects never mix. Phone messages start with `[project name]`. Note that one chat bot can talk to only one Claude Code session at a time (see below).
+
+**What if two Claude Code sessions are open on the same project?**
+A run belongs to the session that started, resumed or claimed it. Only that session is told to continue, and only its subagents and tokens count. Other sessions are told the run belongs to another session. To continue it in a new session (for example after restarting Claude Code), run `bash .sdd/bin/sdd claim`.
+
 **How do I stop a run?**
 `bash .sdd/bin/sdd halt "reason"` pauses it; `bash .sdd/bin/sdd stop` ends it. From the phone, send `stop`.
 
@@ -120,7 +126,7 @@ A halt means the run needs you. `bash .sdd/bin/sdd status` shows the reason. Dea
 | `T-...: review round cap reached with open findings` | The reviewer still has CRITICAL or HIGH findings | Read the findings; decide, then resume |
 | `agent run cap reached (60)` | More subagent runs than `max_agent_runs` | Check progress; raise the cap if the spec is just large |
 | `token budget reached (... of ...)` | Fresh tokens exceeded `max_tokens` | Raise the budget or stop the run |
-| `no task completed since the last automatic continue` | The session kept going without progress | Read the last messages; give direction, then resume |
+| `no task completed since the last automatic continue` | The session stopped twice without a ticked task or a finished subagent (waiting for a subagent that is still working does not count) | Read the last messages; give direction, then resume |
 | `... changed after it was approved ...` | Spec, plan or tasks changed during the run (for example by converge) | Review and `bash .sdd/bin/sdd approve <NNN> --start` |
 | `tasks.md changed outside sdd done (...)` | A task row was ticked, removed or added by hand | Restore it (`git checkout -- specs/<NNN>-*/tasks.md`) or approve the new tasks |
 | `converge round cap reached (2); ship or plan a new spec` | Converge keeps finding work | Ship what you have, or plan the rest as a new spec |
@@ -147,6 +153,9 @@ The task table needs `| ID | Task | Test | Risk | Status |`, with Status last.
 The gate proves consistency, not correctness. Strengthen the acceptance criteria, mark the task `high` risk (Opus review plus an adversarial test), and add the rule to `specs/constitution.md`.
 
 ## Phone control problems
+
+**My reply on the phone never reached Claude, although messages from Claude arrive.**
+Two things cause this. (1) Claude Code was not started with the channel on: only `claude --channels plugin:telegram@claude-plugins-official` (or `discord`) passes your messages into the session; without it the bot can still send. (2) Several Claude Code sessions run the plugin, for example a terminal and VS Code panels, and the bot hands each message to just one of them. `bash .sdd/bin/sdd doctor` warns with `N telegram servers are running`. Use phone control in one session only: close the others or turn the plugin off there.
 
 **The bot does not answer.**
 Start Claude Code with the channel on (`claude --channels plugin:telegram@claude-plugins-official`, or `discord`), DM the bot, and pair with `/<channel>:access pair <code>` in the terminal. Run `bash .sdd/bin/sdd remote` to see what is missing.

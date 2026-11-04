@@ -12,7 +12,7 @@ from specsteward import graph, prereqs, trust
 from specsteward.check import resolve_cmd
 from specsteward.hooks import SHIM
 from specsteward.init import ASK, DENY
-from specsteward.remote import CHANNELS, channel_status, configured
+from specsteward.remote import CHANNELS, channel_status, configured, running_servers
 from specsteward.state import current_branch
 
 OK, WARN, FAIL = "ok", "warn", "FAIL"
@@ -169,9 +169,21 @@ def _remote() -> list[Finding]:
         found.append(Finding(WARN, "Bun is installed but not on PATH", fix))
     else:
         found.append(Finding(OK, "Bun found"))
+    servers = running_servers()
     for channel in CHANNELS:
         if not configured(channel):
             continue
+        count = servers.get(channel.name, 0)
+        if count > 1:
+            found.append(
+                Finding(
+                    WARN,
+                    f"{count} {channel.name} servers are running (one per Claude Code session); "
+                    "each reply reaches only one of them",
+                    "use phone control in one session only, started with "
+                    f"`claude --channels plugin:{channel.name}@claude-plugins-official`",
+                )
+            )
         status = channel_status(channel)
         title = channel.name.capitalize()
         if status["ready"]:

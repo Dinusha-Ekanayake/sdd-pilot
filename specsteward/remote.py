@@ -7,6 +7,9 @@ both plugins a DM's chat id equals the sender's user id, so ``allowFrom`` is the
 
 import json
 import os
+import re
+import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -90,6 +93,33 @@ def channel_status(channel: Channel, directory: Path | None = None) -> dict[str,
 
 def telegram_status(directory: Path | None = None) -> dict[str, Any]:
     return channel_status(TELEGRAM, directory)
+
+
+def _command_lines() -> list[str]:
+    """Command lines of the running processes; [] when they cannot be listed."""
+    if sys.platform == "win32":
+        query = "Get-CimInstance Win32_Process | ForEach-Object { $_.CommandLine }"
+        cmd = ["powershell", "-NoProfile", "-NonInteractive", "-Command", query]
+    else:
+        cmd = ["ps", "-A", "-o", "args="]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    return proc.stdout.splitlines() if proc.returncode == 0 else []
+
+
+def running_servers(lines: list[str] | None = None) -> dict[str, int]:
+    """How many channel servers run, per channel. Each Claude Code session with the plugin
+    enabled starts one, and a bot delivers each message to only one of them."""
+    lines = _command_lines() if lines is None else lines
+    counts: dict[str, int] = {}
+    for channel in CHANNELS:
+        pattern = re.compile(rf"bun(\.exe)?\s+run\b.*[\\/]{channel.name}[\\/][^\s\"]*")
+        found = sum(1 for line in lines if pattern.search(line))
+        if found:
+            counts[channel.name] = found
+    return counts
 
 
 def remote_status() -> dict[str, Any]:

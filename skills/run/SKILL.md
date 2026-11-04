@@ -36,7 +36,10 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
    themselves. `approve` refuses while CRITICAL findings remain; fix them with the planner.
 
 ## `<NNN>`: implement an approved spec
-1. Unless the run was started by `approve <NNN> --start`, run `SDD start <NNN>` (a
+1. A run belongs to the session that starts it. If `SDD start` says a run is already
+   active and the session-start note says it belongs to another session, run `SDD claim`
+   to continue it here instead (for example after restarting Claude Code).
+   Unless the run was started by `approve <NNN> --start`, run `SDD start <NNN>` (a
    permission prompt). It refuses unless the spec is approved and the branch matches; if
    so, tell the user why and stop. If `sdd.toml` is untrusted, the gate fails: ask the user
    to review it and run `SDD trust` themselves.
@@ -119,4 +122,6 @@ Rules:
 - Never send secrets, `.env` files, tokens or credentials to the chat. Send summaries and
   spec, plan or report files only.
 - Keep phone messages short: at most about 10 lines plus attachments.
+- Start every phone message with `[<project folder name>]`, so the user can tell projects
+  apart when they run specsteward in more than one.
 - Commit messages and PR bodies never carry AI attribution unless the project asks.
