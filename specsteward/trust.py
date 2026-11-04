@@ -9,9 +9,11 @@ The store lives in the user's home (``~/.claude/specsteward/trust.json``, or ``$
 not in the project, so agents editing project files cannot forge it.
 """
 
+import functools
 import hashlib
 import json
 import os
+import subprocess
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -61,6 +63,32 @@ def file_hash(path: Path) -> str | None:
 
 def _key(root: Path) -> str:
     return root.resolve().as_posix().lower() if os.name == "nt" else root.resolve().as_posix()
+
+
+MAX_TRUSTED_CONFIGS = 10  # branches (and worktrees) may each carry their own sdd.toml
+
+
+@functools.lru_cache(maxsize=64)
+def repo_root(root: Path) -> Path:
+    """The main checkout of the repository ``root`` belongs to, for git worktrees.
+
+    Trust and approvals are kept per repository, so a linked worktree shares what was
+    trusted and approved in the main checkout. Run state stays per worktree.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return root
+    common = Path(proc.stdout.strip()) if proc.returncode == 0 and proc.stdout.strip() else None
+    if common is None:
+        return root
+    return common.parent if common.name == ".git" else common
 
 
 RETRY_SECONDS = 3.0
@@ -153,28 +181,37 @@ def _read(root: Path) -> dict[str, Any]:
     return entry
 
 
+def _trusted_configs(entry: dict[str, Any]) -> list[str]:
+    configs = [str(c) for c in entry.get("configs", [])]
+    legacy = entry.get("config")  # 0.2.0 development builds kept a single hash
+    return [*configs, str(legacy)] if legacy and str(legacy) not in configs else configs
+
+
 def trust_config(root: Path) -> str:
-    """Record the current ``sdd.toml`` as trusted and return its hash."""
+    """Record the current ``sdd.toml`` as trusted (for the whole repository); return its hash."""
     digest = file_hash(root / CONFIG_FILE)
     if digest is None:
         raise ValueError(f"no {CONFIG_FILE} in {root}")
     with _transaction() as data:
-        _project(data, root)["config"] = digest
+        entry = _project(data, repo_root(root))
+        configs = [c for c in _trusted_configs(entry) if c != digest]
+        entry["configs"] = [*configs, digest][-MAX_TRUSTED_CONFIGS:]
+        entry.pop("config", None)
     return digest
 
 
 def config_trusted(root: Path) -> bool:
     digest = file_hash(root / CONFIG_FILE)
-    return digest is not None and _read(root).get("config") == digest
+    return digest is not None and digest in _trusted_configs(_read(repo_root(root)))
 
 
 def record_approval(root: Path, spec: str, digest: str) -> None:
     with _transaction() as data:
-        _project(data, root).setdefault("approvals", {})[spec] = digest
+        _project(data, repo_root(root)).setdefault("approvals", {})[spec] = digest
 
 
 def approved_hash(root: Path, spec: str) -> str | None:
-    value = _read(root).get("approvals", {}).get(spec)
+    value = _read(repo_root(root)).get("approvals", {}).get(spec)
     return str(value) if value else None
 
 

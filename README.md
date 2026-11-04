@@ -132,8 +132,8 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 ## Limitations
 
 - The token budget (`[limits] max_tokens`) is checked when a subagent or the session stops, so a run can go a little past it before halting. Cached reads are reported but not counted.
-- One run per repository at a time (use a separate clone or worktree for parallel specs).
-- Trust and approvals are tied to the project's folder path: after moving or renaming the folder, run `sdd trust` and approve the spec again.
+- One run per checkout. For parallel specs, `bash .sdd/bin/sdd worktree <NNN>` creates a sibling git worktree on the spec's branch; worktrees share trust and approvals and each keeps its own run.
+- Trust and approvals are tied to the repository's folder path: after moving or renaming it, run `sdd trust` and approve the spec again.
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.
 - Subagents start without conversation context, so briefs matter; check "BRIEF GAPS" in reports.
 - Quality still depends on your tests and spec. Green checks prove consistency, not correctness; the reviewer is a second opinion, not a guarantee.
