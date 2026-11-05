@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-05)
 
 ### Added
 - `sdd phone setup` (also run by `/specsteward:remote`) sets up phone control in one step: Bun, the official Telegram or Discord plugin, and a `claude-phone` command. It switches the plugin off in ordinary sessions and loads it only in `claude-phone` sessions (`--plugin-dir` plus `--channels`), so other terminals and VS Code panels no longer run competing copies of the bot that swallow replies. `sdd phone lock` restricts the bot to the paired account. `sdd doctor` warns while the plugin is still on in every session.
