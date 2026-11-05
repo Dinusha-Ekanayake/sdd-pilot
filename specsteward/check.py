@@ -5,6 +5,7 @@ orchestrator can spot the same failure coming back.
 """
 
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -15,6 +16,7 @@ from pathlib import Path
 from specsteward import state as run_state
 from specsteward import trust
 from specsteward.config import CONFIG_FILE, CheckStep, Config, Wording
+from specsteward.remote import CHANNELS
 
 MAX_DETAIL_LINES = 25
 COVERAGE_LINE = re.compile(r"^(TOTAL\b|All files\b|Statements\s*:)")
@@ -84,6 +86,14 @@ def resolve_cmd(cmd: tuple[str, ...], root: Path) -> list[str]:
     return [found, *cmd[1:]]
 
 
+def without_bot_tokens() -> dict[str, str]:
+    """This environment minus the phone bot tokens. In a `claude-phone` session the token
+    is in Claude Code's environment for the channel plugin; the project's checks and
+    formatters (code an agent may have written) have no use for it."""
+    secret = {channel.token_var for channel in CHANNELS}
+    return {key: value for key, value in os.environ.items() if key not in secret}
+
+
 def run_step(root: Path, step: CheckStep) -> StepResult:
     try:
         proc = subprocess.run(
@@ -95,6 +105,7 @@ def run_step(root: Path, step: CheckStep) -> StepResult:
             errors="replace",
             check=False,
             timeout=step.timeout,
+            env=without_bot_tokens(),
         )
     except FileNotFoundError as error:
         return StepResult(step.name, False, (f"command not found: {error}",))

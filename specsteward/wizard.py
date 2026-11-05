@@ -9,7 +9,6 @@ still happens through the plugin, because reading Discord DMs needs a live gatew
 
 import getpass
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -17,7 +16,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from specsteward import bots, phone
+from specsteward import bots, phone, secret_store
 from specsteward.remote import Channel, running_servers, state_dir
 
 PAIR_SECONDS = 180
@@ -61,27 +60,31 @@ def read_token(env_file: Path, var: str) -> str:
     return ""
 
 
-def _replace(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.unlink(missing_ok=True)
-    # Owner-only from the moment it exists: the token is a credential. It has to be stored
-    # in plain text, because the official plugin reads it from this file (as
-    # /<channel>:configure writes it).
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-        handle.write(text)
-    os.replace(tmp, path)
-
-
-def write_token(env_file: Path, var: str, token: str) -> None:
-    """Set ``VAR=token`` and keep any other lines."""
+def _other_lines(env_file: Path, var: str) -> list[str]:
     try:
         lines = env_file.read_text(encoding="utf-8").splitlines()
     except OSError:
-        lines = []
-    kept = [line for line in lines if line.partition("=")[0].strip() != var]
-    _replace(env_file, "\n".join([*kept, f"{var}={token}"]) + "\n")
+        return []
+    return [line for line in lines if line.partition("=")[0].strip() != var]
+
+
+def write_token(env_file: Path, var: str, token: str) -> None:
+    """The fallback when there is no credential store: ``VAR=token`` in the plugin's own
+    file, owner-only from creation, keeping any other lines."""
+    lines = [*_other_lines(env_file, var), f"{var}={token}"]
+    secret_store.write_private(env_file, "\n".join(lines) + "\n")
+
+
+def remove_token(env_file: Path, var: str) -> bool:
+    """Drop the plain-text token once the credential store holds it. True if one was there."""
+    if not read_token(env_file, var):
+        return False
+    kept = _other_lines(env_file, var)
+    if any(line.strip() for line in kept):
+        secret_store.write_private(env_file, "\n".join(kept) + "\n")
+    else:
+        env_file.unlink()
+    return True
 
 
 def _access(access_file: Path) -> dict[str, object]:
@@ -108,7 +111,7 @@ def write_lock(access_file: Path, user_id: str) -> int:
     removed = len([i for i in before if str(i) != user_id]) if isinstance(before, list) else 0
     access.update(dmPolicy="allowlist", allowFrom=[user_id], pending={})
     access.setdefault("groups", {})
-    _replace(access_file, json.dumps(access, indent=2) + "\n")
+    secret_store.write_private(access_file, json.dumps(access, indent=2) + "\n")
     return removed
 
 
@@ -134,12 +137,31 @@ def _check(channel: Channel, token: str, telegram: Callable[[str], bots.Telegram
     return bots.discord_username(token)
 
 
+def _save(channel: Channel, token: str, console: Console) -> None:
+    """Into the credential store; the owner-only file only where there is none."""
+    env_file = state_dir(channel) / ".env"
+    try:
+        kind = secret_store.store(channel.name, token)
+    except ValueError:
+        kind = None
+    if kind:
+        moved = remove_token(env_file, channel.token_var)
+        extra = "; the plain-text copy is deleted" if moved else ""
+        console.say(f"ok   token saved in {secret_store.LABELS[kind]}{extra}")
+        return
+    write_token(env_file, channel.token_var, token)
+    console.say(f"warn no credential store works here; token saved owner-only to {env_file}")
+    if sys.platform.startswith("linux"):
+        console.say("     to keep it encrypted: install secret-tool (libsecret) and a keyring")
+
+
 def _token(
     channel: Channel, console: Console, telegram: Callable[[str], bots.Telegram]
 ) -> tuple[str, str] | None:
-    """(token, bot username), saved where the plugin reads it, or None."""
+    """(token, bot username), saved in the credential store, or None."""
     env_file = state_dir(channel) / ".env"
-    existing = read_token(env_file, channel.token_var)
+    in_file = read_token(env_file, channel.token_var)
+    existing = secret_store.load(channel.name) or in_file
     if existing:
         try:
             name = _check(channel, existing, telegram)
@@ -147,6 +169,8 @@ def _token(
             console.say(f"warn the saved token no longer works: {error}")
         else:
             if console.yes(f"Use the bot you already set up, @{name}?", True):
+                if in_file:  # move it out of the plain-text file
+                    _save(channel, existing, console)
                 return existing, name
     console.say()
     for line in _bot_help(channel):
@@ -161,8 +185,8 @@ def _token(
         except bots.BotError as error:
             console.say(f"FAIL {error}")
             continue
-        write_token(env_file, channel.token_var, token)
-        console.say(f"ok   connected to @{name}; token saved to {env_file}")
+        console.say(f"ok   connected to @{name}")
+        _save(channel, token, console)
         return token, name
     console.say("FAIL no working token; run `sdd phone setup` again when you have one")
     return None

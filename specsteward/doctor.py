@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Any
 
 from specsteward import config as cfg_mod
-from specsteward import graph, phone, prereqs, trust
+from specsteward import graph, phone, prereqs, secret_store, trust, wizard
 from specsteward.check import resolve_cmd
 from specsteward.hooks import SHIM
 from specsteward.init import ASK, DENY
-from specsteward.remote import CHANNELS, channel_status, configured, running_servers
+from specsteward.remote import CHANNELS, channel_status, configured, running_servers, state_dir
 from specsteward.state import current_branch
 
 OK, WARN, FAIL = "ok", "warn", "FAIL"
@@ -183,6 +183,16 @@ def _remote() -> list[Finding]:
                     "each reply reaches only one of them",
                     f"`sdd phone setup --channel {channel.name}`, restart the other sessions, "
                     "and use `claude-phone` for phone control",
+                )
+            )
+        store = secret_store.backend()
+        if store != "file" and wizard.read_token(state_dir(channel) / ".env", channel.token_var):
+            found.append(
+                Finding(
+                    WARN,
+                    f"the {channel.name} bot token is in a plain-text file",
+                    f"`sdd phone setup --channel {channel.name}` in a terminal moves it into "
+                    f"{secret_store.LABELS[store]}",
                 )
             )
         if phone.enabled_everywhere(channel):

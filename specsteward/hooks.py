@@ -8,7 +8,7 @@ from typing import Any
 
 from specsteward import state as run_state
 from specsteward import trust
-from specsteward.check import resolve_cmd
+from specsteward.check import resolve_cmd, without_bot_tokens
 from specsteward.config import Config
 from specsteward.safefs import ensure_safe
 from specsteward.tasks import parse_tasks
@@ -141,6 +141,7 @@ def format_file(cfg: Config, payload: dict[str, Any]) -> None:
                 capture_output=True,
                 check=False,
                 timeout=60,
+                env=without_bot_tokens(),
             )
         except (OSError, subprocess.TimeoutExpired):
             continue

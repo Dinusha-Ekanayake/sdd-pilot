@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from specsteward import bots, phone, wizard
+from specsteward import bots, phone, secret_store, wizard
 from specsteward.__main__ import main
 from tests.test_bots import TOKEN, FakeTelegram, _message
 
@@ -47,7 +47,21 @@ def state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         monkeypatch.setenv(channel.dir_var, str(tmp_path / channel.name))
     monkeypatch.setattr(phone, "setup", lambda channel: (True, ["ok   setup done"]))
     monkeypatch.setattr(wizard, "running_servers", lambda: {})
+    monkeypatch.setattr(secret_store, "backend", lambda: "file")  # see FakeStore for the rest
     return tmp_path
+
+
+class FakeStore:
+    """An OS credential store that works, standing in for the real one."""
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.saved: dict[str, str] = {}
+        monkeypatch.setattr(secret_store, "store", self.store)
+        monkeypatch.setattr(secret_store, "load", lambda name: self.saved.get(name, ""))
+
+    def store(self, name: str, token: str) -> str:
+        self.saved[name] = token
+        return "keychain"
 
 
 def _run(console: Script, fake: FakeTelegram, clock: Iterator[float] | None = None) -> int:
@@ -226,3 +240,49 @@ def test_token_file_is_owner_only(tmp_path: Path) -> None:
     wizard.write_token(env, "TELEGRAM_BOT_TOKEN", "t")
     assert env.stat().st_mode & 0o777 == 0o600
     assert not list(env.parent.glob("*.tmp"))
+
+
+# --- the credential store -----------------------------------------------------------------
+
+
+def test_a_new_token_goes_to_the_credential_store_not_a_file(
+    state: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store = FakeStore(monkeypatch)
+    console = Script(secrets=[TOKEN], answers=[True, False])
+    fake = FakeTelegram()
+    fake.updates.append(_message(1, 42))
+    monkeypatch.setattr(bots.Telegram, "skip_backlog", lambda self: 0)
+    assert _run(console, fake) == 0, console.text
+    assert store.saved == {"telegram": TOKEN}
+    assert not (state / "telegram" / ".env").exists()  # no plain-text copy anywhere
+    assert "saved in the macOS Keychain" in console.text
+
+
+def test_an_old_plain_text_token_is_moved_into_the_store(
+    state: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    env = state / "telegram" / ".env"
+    wizard.write_token(env, "TELEGRAM_BOT_TOKEN", TOKEN)
+    env.write_text(env.read_text(encoding="utf-8") + "OTHER=1\n", encoding="utf-8")
+    wizard.write_lock(state / "telegram" / "access.json", "42")
+    store = FakeStore(monkeypatch)
+    console = Script(answers=[True, True, False])  # keep the bot, keep the lock, start later
+    assert _run(console, FakeTelegram()) == 0, console.text
+    assert store.saved == {"telegram": TOKEN}
+    assert read(env) == "OTHER=1\n"  # only the token line went
+    assert "plain-text copy is deleted" in console.text
+
+
+def test_without_a_credential_store_the_file_is_used_and_said(state: Path) -> None:
+    console = Script(secrets=[TOKEN])
+    _run(console, FakeTelegram(), iter([0, 500]))
+    assert wizard.read_token(state / "telegram" / ".env", "TELEGRAM_BOT_TOKEN") == TOKEN
+    assert "no credential store works here" in console.text
+
+
+def test_remove_token_deletes_an_emptied_file(tmp_path: Path) -> None:
+    env = tmp_path / ".env"
+    assert wizard.remove_token(env, "X") is False
+    wizard.write_token(env, "X", "t")
+    assert wizard.remove_token(env, "X") is True and not env.exists()

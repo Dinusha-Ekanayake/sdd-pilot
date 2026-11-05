@@ -175,6 +175,15 @@ On Linux, install `unzip` with your package manager, then `bash .sdd/bin/sdd ins
 **`dmPolicy is not 'allowlist'`** / **`more than one user can approve`**
 Lock it down with `bash .sdd/bin/sdd phone lock`, which allows only your paired account.
 
+**`claude-phone: could not read the bot token from the credential store`**
+The keychain entry is gone or locked: on macOS unlock the login Keychain, on Linux make sure your desktop keyring is unlocked. If you moved to a new Windows account or machine, the DPAPI blob cannot be decrypted there. In every case, `bash .sdd/bin/sdd phone setup` again stores the token anew.
+
+**`the telegram bot token is in a plain-text file`** (from `sdd doctor`)
+It was saved by `/telegram:configure` or an older version. Run `bash .sdd/bin/sdd phone setup` in a terminal and keep the bot: it moves the token into the credential store and deletes the plain-text copy.
+
+**Is my bot token safe?**
+It sits in your operating system's credential store, encrypted, and reaches the plugin only when `claude-phone` starts. See [Where the token is kept](phone.md#where-the-token-is-kept) for what that does and does not protect against, and how to replace a leaked token.
+
 **Approvals do not reach the phone while I am away.**
 The computer must stay on and awake during a run (on Windows: Settings > Power, sleep "Never" when plugged in).
 

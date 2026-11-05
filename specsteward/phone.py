@@ -18,7 +18,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from specsteward import prereqs
+from specsteward import prereqs, secret_store
 from specsteward.remote import CHANNELS, Channel, state_dir
 
 MARKETPLACE = "claude-plugins-official"
@@ -80,7 +80,7 @@ def launcher_dir() -> Path:
     return Path(claude).parent if claude else Path.home() / ".local" / "bin"
 
 
-LAUNCHER_SCRIPT = """#!/usr/bin/env bash
+LAUNCHER_SCRIPT = r"""#!/usr/bin/env bash
 # Written by specsteward (`sdd phone setup`): Claude Code with {name} phone control.
 # The {name} plugin is off in ordinary sessions, so only sessions started here run the bot.
 # It is loaded for this session with --plugin-dir (newest installed version), and
@@ -95,6 +95,28 @@ if [ -z "$dir" ]; then
   echo "{launcher}: the {name} plugin is not installed; run \`sdd phone setup\`." >&2
   exit 1
 fi
+# The bot token comes from the operating system's credential store (`sdd phone setup` put
+# it there) and reaches the plugin as an environment variable, never a plain-text file.
+secrets="{secrets}"
+if [ -z "${{{var}:-}}" ] && [ -f "$secrets/{name}.store" ]; then
+  token=""
+  case "$(cat "$secrets/{name}.store")" in
+    dpapi)
+      token="$(SPECSTEWARD_BLOB="$secrets/{name}.dpapi" powershell.exe -NoProfile \
+        -NonInteractive -Command '{powershell}' 2>/dev/null | tr -d '\r' || true)" ;;
+    keychain)
+      token="$(security find-generic-password -s {service} -a {account} -w \
+        2>/dev/null || true)" ;;
+    secret-service)
+      token="$(secret-tool lookup service {service} account {account} 2>/dev/null || true)" ;;
+  esac
+  if [ -z "$token" ]; then
+    echo "{launcher}: could not read the {name} bot token from the credential store;" \
+      "run \`sdd phone setup\` again." >&2
+    exit 1
+  fi
+  export {var}="$token"
+fi
 exec claude --plugin-dir "$dir" --channels plugin:{plugin} "$@"
 """
 
@@ -107,7 +129,15 @@ def write_launcher(channel: Channel, directory: Path | None = None) -> list[Path
     directory.mkdir(parents=True, exist_ok=True)
     script = directory / LAUNCHER
     text = LAUNCHER_SCRIPT.format(
-        name=channel.name, marketplace=MARKETPLACE, plugin=plugin_id(channel), launcher=LAUNCHER
+        name=channel.name,
+        marketplace=MARKETPLACE,
+        plugin=plugin_id(channel),
+        launcher=LAUNCHER,
+        var=channel.token_var,
+        secrets=secret_store.secrets_dir().as_posix(),
+        service=secret_store.service(channel.name),
+        account=secret_store.ACCOUNT,
+        powershell=secret_store.POWERSHELL_READ,
     )
     script.write_text(text, encoding="utf-8", newline="\n")
     script.chmod(0o755)
