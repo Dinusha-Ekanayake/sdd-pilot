@@ -64,8 +64,13 @@ def read_token(env_file: Path, var: str) -> str:
 def _replace(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8", newline="\n")
-    tmp.chmod(0o600)  # the token is a credential
+    tmp.unlink(missing_ok=True)
+    # Owner-only from the moment it exists: the token is a credential. It has to be stored
+    # in plain text, because the official plugin reads it from this file (as
+    # /<channel>:configure writes it).
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(text)
     os.replace(tmp, path)
 
 

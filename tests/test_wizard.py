@@ -2,6 +2,7 @@
 
 import itertools
 import json
+import sys
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Any
@@ -217,3 +218,11 @@ def test_cli_uses_the_wizard_only_at_a_terminal(
     assert main(["phone", "setup"]) == 0 and calls == ["telegram"]
     assert main(["phone", "setup", "--no-input"]) == 0 and calls == ["telegram"]
     assert "Easiest: run" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permissions")
+def test_token_file_is_owner_only(tmp_path: Path) -> None:
+    env = tmp_path / "telegram" / ".env"
+    wizard.write_token(env, "TELEGRAM_BOT_TOKEN", "t")
+    assert env.stat().st_mode & 0o777 == 0o600
+    assert not list(env.parent.glob("*.tmp"))
