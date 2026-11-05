@@ -197,7 +197,7 @@ specsteward collects no telemetry and sends nothing anywhere by itself. Everythi
 
 ```bash
 python -m venv .venv && .venv/bin/pip install pytest pytest-cov ruff mypy
-bash bin/sdd init --preset python   # the repo uses itself
+bash scripts/sdd.sh init --preset python   # the repo uses itself
 bash .sdd/bin/sdd check
 ```
 

@@ -6,8 +6,8 @@
 
 `claude-phone` reads the token when it starts and hands it to Claude Code as an environment
 variable. The channel plugin prefers that over its `.env` file (verified live: plugin
-servers inherit Claude Code's environment), so no plain-text copy is needed. This is the
-pattern of `aws-vault exec` and `op run`. Where no credential store works (a headless Linux
+servers inherit Claude Code's environment), so no plain-text copy is needed. Credential
+tools such as aws-vault work the same way. Where no credential store works (a headless Linux
 box without a keyring), the caller falls back to the owner-only `.env` file and says so.
 
 A small marker file records which store holds a channel's token. It holds no secret, and

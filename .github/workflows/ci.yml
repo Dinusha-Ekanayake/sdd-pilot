@@ -41,8 +41,9 @@ jobs:
           for f in (".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", "hooks/hooks.json"):
               json.loads(pathlib.Path(f).read_text())
           PY
-          test -x bin/sdd
-          bash -n bin/sdd
+          test -x scripts/sdd.sh
+          bash -n scripts/sdd.sh
+          test ! -e bin  # a plugin with bin/ is refused by claude.ai and Cowork
 
   graphify-lock:
     # The exact-version lock must install on every OS, or automatic graph builds break.

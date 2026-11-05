@@ -32,8 +32,10 @@ from specsteward.shell_guard import shell_guard_decision
 from specsteward.tasks import parse_tasks
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
-LAUNCHER = PLUGIN_ROOT / "bin" / "sdd"
-ENTRY = PLUGIN_ROOT / "bin" / "sdd_entry.py"
+# Outside bin/: Claude Code puts a plugin's bin/ on PATH, and claude.ai and Cowork refuse
+# plugins that have one.
+LAUNCHER = PLUGIN_ROOT / "scripts" / "sdd.sh"
+ENTRY = PLUGIN_ROOT / "scripts" / "sdd_entry.py"
 HOOKS = (
     "hook-stop",
     "hook-format",

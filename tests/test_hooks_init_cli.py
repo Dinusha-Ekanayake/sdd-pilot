@@ -309,7 +309,7 @@ def test_launcher_and_shim_run_the_cli(repo: Path) -> None:
     # Resolve through PATH: on Windows a bare "bash" can hit WSL in System32 instead.
     bash = shutil.which("bash")
     assert bash is not None
-    shim = write_shim(repo, ROOT / "bin" / "sdd")
+    shim = write_shim(repo, ROOT / "scripts" / "sdd.sh")
     proc = subprocess.run(
         [bash, shim.relative_to(repo).as_posix(), "status"],
         cwd=repo,
@@ -349,7 +349,7 @@ def test_format_hook_ignores_files_outside_the_project(
 def test_launcher_skips_python_for_hooks_outside_sdd_projects(tmp_path: Path) -> None:
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(tmp_path), "SDD_PYTHON": "no-such-python"}
     proc = subprocess.run(
-        [str(shutil.which("bash")), str(ROOT / "bin" / "sdd"), "hook-format"],
+        [str(shutil.which("bash")), str(ROOT / "scripts" / "sdd.sh"), "hook-format"],
         input="{}",
         capture_output=True,
         text=True,

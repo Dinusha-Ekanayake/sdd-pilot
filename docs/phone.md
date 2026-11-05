@@ -46,7 +46,7 @@ Anyone with the bot token controls the bot, so `sdd phone setup` keeps it out of
 | Linux desktop | Secret Service (GNOME Keyring, KWallet), item `specsteward.<ch>` | Encrypted by the keyring; needs `secret-tool` (package `libsecret-tools`) |
 | No credential store (headless Linux, WSL without a keyring) | `~/.claude/channels/<ch>/.env` | Plain text, owner-only (`0600`); setup and `sdd doctor` say so |
 
-`claude-phone` reads the token when it starts and passes it to Claude Code as an environment variable. The plugin prefers that over its `.env` file, so no plain-text copy is needed. This is the same pattern as `aws-vault exec` and `op run`. A copy of `~/.claude` in a backup, cloud sync or dotfiles repo therefore holds no usable token.
+`claude-phone` reads the token when it starts and passes it to Claude Code as an environment variable. The plugin prefers that over its `.env` file, so no plain-text copy is needed. Credential tools such as aws-vault and the 1Password CLI work the same way. A copy of `~/.claude` in a backup, cloud sync or dotfiles repo therefore holds no usable token.
 
 What it does not protect against: software already running as you can read the environment of your own processes, as with any locally stored secret. Inside a `claude-phone` session the token is in that session's environment. `sdd check` and the format hook remove it before running project code, so agent-written tests never see it.
 

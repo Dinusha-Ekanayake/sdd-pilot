@@ -6,7 +6,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-session-start",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-session-start"
+            ],
             "timeout": 30
           }
         ]
@@ -18,7 +22,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-guard",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-guard"
+            ],
             "timeout": 30
           }
         ]
@@ -28,7 +36,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-shell-guard",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-shell-guard"
+            ],
             "timeout": 30
           }
         ]
@@ -40,7 +52,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-format",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-format"
+            ],
             "timeout": 60
           }
         ]
@@ -50,7 +66,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-bind",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-bind"
+            ],
             "timeout": 30
           }
         ]
@@ -61,7 +81,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-stop",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-stop"
+            ],
             "timeout": 30
           }
         ]
@@ -72,7 +96,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-subagent-stop",
+            "command": "bash",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
+              "hook-subagent-stop"
+            ],
             "timeout": 30
           }
         ]
