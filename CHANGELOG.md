@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The plugin's launcher moved from `bin/sdd` to `scripts/sdd.sh`, and hooks use exec form (`bash` plus the script path). Claude Code puts a plugin's `bin/` folder on PATH, and claude.ai and Cowork refuse plugins that have one. Projects need nothing: `.sdd/bin/sdd` is rewritten at the next session start.
+- The plugin has an icon for the directory listing.
+
 ## 0.3.0 (2026-11-05)
 
 ### Added
