@@ -1,10 +1,17 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 (2026-11-05)
+
+Ready for the Claude plugin directory.
 
 ### Changed
-- The plugin's launcher moved from `bin/sdd` to `scripts/sdd.sh`, and hooks use exec form (`bash` plus the script path). Claude Code puts a plugin's `bin/` folder on PATH, and claude.ai and Cowork refuse plugins that have one. Projects need nothing: `.sdd/bin/sdd` is rewritten at the next session start.
-- The plugin has an icon for the directory listing.
+- The plugin's launcher moved from `bin/sdd` to `scripts/sdd.sh`. Claude Code puts a plugin's `bin/` folder on PATH, and the directory refuses commands it cannot follow. Projects need nothing: `.sdd/bin/sdd` is rewritten at the next session start.
+- Hooks use exec form and run one-line wrappers in `scripts/hooks/` that hold only literal paths, as the directory requires. The launcher no longer reads `PWD` and no longer names the bot token variables.
+- The plugin has an icon, and `plugin.json` links the setup guide, a privacy policy, a support page and the license for the directory listing.
+
+### Added
+- `PRIVACY.md`: no telemetry; everything is stored on your machine; every network connection specsteward makes is listed.
+- `SUPPORT.md`: where to get help, report bugs and report security problems.
 
 ## 0.3.0 (2026-11-05)
 
