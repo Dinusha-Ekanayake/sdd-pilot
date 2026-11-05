@@ -16,6 +16,7 @@ Everything stays on your computer:
 | Run state, task briefs, review and gate results, approvals log | `.sdd/` in your project (git-ignored) |
 | Trusted `sdd.toml` hashes, spec approvals, recorded task statuses | `~/.claude/specsteward/` |
 | Phone bot token (only if you set up phone control) | Your operating system's credential store (Windows DPAPI, macOS Keychain, Linux Secret Service), or an owner-only file where there is none |
+| Your own Telegram or Discord account ID, on the bot's allowlist (only if you set up phone control; the wizard shows your display name once so you can confirm it is you, and does not store it) | `~/.claude/channels/<channel>/access.json`, the official plugin's file |
 | Specs, plans and tasks you write | `specs/` in your project, under your own version control |
 
 Delete these folders, and the credential-store entry, to remove everything (see
