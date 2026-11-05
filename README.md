@@ -172,7 +172,7 @@ See [SECURITY.md](SECURITY.md) and [docs/security.md](docs/security.md). In shor
 
 ## Privacy
 
-specsteward collects no telemetry and sends nothing anywhere by itself. Everything it records stays on your machine: `.sdd/` in the project and `~/.claude/specsteward/` for trust and approvals. The only network calls it makes are installing pinned versions of graphify and Bun, and the phone channel you choose to set up.
+specsteward collects no telemetry and sends nothing anywhere by itself. Everything it records stays on your machine: `.sdd/` in the project and `~/.claude/specsteward/` for trust and approvals. The only network calls it makes are installing pinned versions of graphify and Bun, and the phone channel you choose to set up. Full details: [PRIVACY.md](PRIVACY.md).
 
 ## Limitations
 
@@ -203,6 +203,6 @@ bash .sdd/bin/sdd check
 
 See [CONTRIBUTING.md](CONTRIBUTING.md). MIT licensed.
 
-Docs: [setup guide](docs/setup-guide.md) · [FAQ and troubleshooting](docs/faq.md) · [how it works](docs/how-it-works.md) · [configuration](docs/configuration.md) · [phone control](docs/phone.md) · [security](docs/security.md)
+Help: [SUPPORT.md](SUPPORT.md) · Docs: [setup guide](docs/setup-guide.md) · [FAQ and troubleshooting](docs/faq.md) · [how it works](docs/how-it-works.md) · [configuration](docs/configuration.md) · [phone control](docs/phone.md) · [security](docs/security.md)
 
 The clarify step, the cross-artifact analysis and the constitution are inspired by GitHub's [Spec Kit](https://github.com/github/spec-kit).
