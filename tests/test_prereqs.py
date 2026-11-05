@@ -145,7 +145,7 @@ def test_official_script_on_windows_without_winget(home: Path, no_tools: dict[st
     ok, _ = prereqs.install_bun("win32", run, _fetch_ok)
     cmd = run.calls[0]
     assert ok and cmd[0] == "powershell" and cmd[-2:] == ["-Version", prereqs.BUN_VERSION]
-    assert "-File" in cmd  # a downloaded file, never `irm | iex`
+    assert "-File" in cmd  # runs the checksum-verified file it saved, not piped text
 
 
 def test_missing_unzip_is_reported_not_sudo_installed(home: Path, no_tools: dict[str, str]) -> None:
