@@ -17,5 +17,9 @@
     "discord"
   ],
   "homepage": "https://github.com/Dinusha-Ekanayake/specsteward",
-  "repository": "https://github.com/Dinusha-Ekanayake/specsteward"
+  "repository": "https://github.com/Dinusha-Ekanayake/specsteward",
+  "documentationUrl": "https://github.com/Dinusha-Ekanayake/specsteward/blob/main/docs/setup-guide.md",
+  "supportUrl": "https://github.com/Dinusha-Ekanayake/specsteward/blob/main/SUPPORT.md",
+  "privacyPolicyUrl": "https://github.com/Dinusha-Ekanayake/specsteward/blob/main/PRIVACY.md",
+  "termsOfServiceUrl": "https://github.com/Dinusha-Ekanayake/specsteward/blob/main/LICENSE"
 }
