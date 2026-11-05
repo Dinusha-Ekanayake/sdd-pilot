@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---|---|
-| 0.2.x | Yes |
+| 0.3.x | Yes |
+| 0.2.x | Security fixes until 2027-02-01 |
 | 0.1.x (sdd-pilot) | No; please upgrade |
 
 ## Reporting a vulnerability
