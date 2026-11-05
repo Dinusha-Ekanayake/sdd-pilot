@@ -158,10 +158,10 @@ The gate proves consistency, not correctness. Strengthen the acceptance criteria
 ## Phone control problems
 
 **My reply on the phone never reached Claude, although messages from Claude arrive.**
-Two things cause this. (1) Claude Code was not started with the channel on: only `claude --channels plugin:telegram@claude-plugins-official` (or `discord`) passes your messages into the session; without it the bot can still send. (2) Several Claude Code sessions run the plugin, for example a terminal and VS Code panels, and the bot hands each message to just one of them. `bash .sdd/bin/sdd doctor` warns with `N telegram servers are running`. Use phone control in one session only: close the others or turn the plugin off there.
+Two things cause this. (1) The session was not started with the channel on: start Claude Code with `claude-phone` (installed by `sdd phone setup`), which passes your messages into the session; a plain `claude` session can still send but never receives. (2) Several sessions run the plugin, for example a terminal and VS Code panels, and the bot hands each message to just one of them. `bash .sdd/bin/sdd phone setup` fixes this for good by switching the plugin off in ordinary sessions, so only `claude-phone` sessions run the bot; `sdd doctor` warns while it is still on everywhere.
 
 **The bot does not answer.**
-Start Claude Code with the channel on (`claude --channels plugin:telegram@claude-plugins-official`, or `discord`), DM the bot, and pair with `/<channel>:access pair <code>` in the terminal. Run `bash .sdd/bin/sdd remote` to see what is missing.
+Start Claude Code with `claude-phone` (run `bash .sdd/bin/sdd phone setup` first if you do not have it), DM the bot, and pair with `/<channel>:access pair <code>` in the terminal. Run `bash .sdd/bin/sdd remote` to see what is missing.
 
 **`Bun is missing; phone control needs it`**
 Run `bash .sdd/bin/sdd install bun`.
@@ -173,7 +173,7 @@ Restart the terminal and Claude Code, so the channel plugin can start `bun`.
 On Linux, install `unzip` with your package manager, then `bash .sdd/bin/sdd install bun` again.
 
 **`dmPolicy is not 'allowlist'`** / **`more than one user can approve`**
-Lock it down: `/<channel>:access policy allowlist`, and keep only your own account in the allowlist.
+Lock it down with `bash .sdd/bin/sdd phone lock`, which allows only your paired account.
 
 **Approvals do not reach the phone while I am away.**
 The computer must stay on and awake during a run (on Windows: Settings > Power, sleep "Never" when plugged in).

@@ -15,7 +15,7 @@ HEADINGS = (
 )
 
 MEMBERS = {
-    "setup": ("init", "trust", "doctor", "install"),
+    "setup": ("init", "trust", "doctor", "install", "phone"),
     "specs": ("analyze", "approve", "worktree"),
     "running a spec": ("start", "next", "halt", "resume", "signoff", "claim", "stop"),
     "views and status": ("status", "dashboard", "statusline", "graph", "remote"),
@@ -51,6 +51,7 @@ FROZEN_HELP = {
     "statusline": "one line for Claude Code's status line",
     "dashboard": "write .sdd/dashboard.html and print its path",
     "install": "install a prerequisite (bun, for phone control)",
+    "phone": "set up phone control in one step, or lock the bot to you",
     "doctor": "check the setup and say how to fix problems",
     "next": "the next task group to run, or halted / done",
     "resume": "clear a halt after the user dealt with it (asks for permission)",

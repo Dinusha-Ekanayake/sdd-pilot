@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from specsteward import config as cfg_mod
-from specsteward import graph, prereqs, trust
+from specsteward import graph, phone, prereqs, trust
 from specsteward import state as run_state
 from specsteward.analyze import analyze
 from specsteward.analyze import format_findings as format_analysis
@@ -64,6 +64,7 @@ COMMAND_GROUPS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("trust", "trust the current sdd.toml (keep behind an ask rule)"),
             ("doctor", "check the setup and say how to fix problems"),
             ("install", "install a prerequisite (bun, for phone control)"),
+            ("phone", "set up phone control in one step, or lock the bot to you"),
         ),
     ),
     (
@@ -208,6 +209,9 @@ def _parser() -> argparse.ArgumentParser:
     graph_cmd.add_argument("action", choices=("status", "sync"))
     sub.add_parser("statusline", help=_help("statusline"))
     sub.add_parser("dashboard", help=_help("dashboard"))
+    phone_cmd = sub.add_parser("phone", help=_help("phone"))
+    phone_cmd.add_argument("action", choices=("setup", "lock"))
+    phone_cmd.add_argument("--channel", choices=("telegram", "discord"), default="telegram")
     install = sub.add_parser("install", help=_help("install"))
     install.add_argument("tool", choices=("bun",))
     doctor = sub.add_parser("doctor", help=_help("doctor"))
@@ -305,6 +309,18 @@ def _graph(cfg: cfg_mod.Config, action: str) -> int:
         graph.release_lock(cfg.root)
     print("\n".join(lines))
     return 1 if any(line.startswith(("could not", "`graphify")) for line in lines) else 0
+
+
+def _phone(action: str, name: str) -> int:
+    channel = phone.channel_named(name)
+    if action == "lock":
+        print(phone.lock(channel))
+        return 0
+    ok, lines = phone.setup(channel)
+    print("\n".join(lines))
+    if ok:
+        print("\n".join(["", *phone.next_steps(channel)]))
+    return 0 if ok else 1
 
 
 def _statusline() -> int:
@@ -437,6 +453,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "statusline":
             return _statusline()
+        if args.command == "phone":
+            return _phone(args.action, args.channel)
         if args.command == "install":
             ok, message = prereqs.install_bun()
             print(message)

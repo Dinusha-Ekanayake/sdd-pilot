@@ -112,7 +112,7 @@ Follow the run with `bash .sdd/bin/sdd status`, the status line (`bash .sdd/bin/
 /specsteward:remote
 ```
 
-It sets up Telegram or Discord through Anthropic's official channel plugin, installs Bun for you, and checks that only your account can reach the session. Details: [phone.md](phone.md).
+It installs everything in one step (Bun, the official Telegram or Discord plugin, and a `claude-phone` command) and switches the plugin off in ordinary sessions, so other terminals and VS Code panels cannot swallow your replies. Then you create the bot, start Claude Code with `claude-phone`, paste the token and pair your phone. Details: [phone.md](phone.md).
 
 ## 8. Optional: run specs in parallel
 
