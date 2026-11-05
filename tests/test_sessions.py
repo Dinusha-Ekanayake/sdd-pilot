@@ -157,7 +157,7 @@ def test_launcher_skips_python_for_unrelated_bash_calls(repo: Path) -> None:
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(repo), "SDD_PYTHON": "no-such-python"}
     payload = json.dumps({"session_id": OWNER, "tool_input": {"command": "ls -la"}})
     proc = subprocess.run(
-        [str(shutil.which("bash")), str(ROOT / "bin" / "sdd"), "hook-bind"],
+        [str(shutil.which("bash")), str(ROOT / "scripts" / "sdd.sh"), "hook-bind"],
         input=payload,
         capture_output=True,
         text=True,
@@ -308,7 +308,7 @@ def test_launcher_runs_a_python_whose_path_has_a_space(repo: Path, tmp_path: Pat
     wrapper.chmod(0o755)
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(repo), "SDD_PYTHON": wrapper.as_posix()}
     proc = subprocess.run(
-        [str(shutil.which("bash")), str(ROOT / "bin" / "sdd"), "--version"],
+        [str(shutil.which("bash")), str(ROOT / "scripts" / "sdd.sh"), "--version"],
         capture_output=True,
         text=True,
         env=env,

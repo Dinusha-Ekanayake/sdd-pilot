@@ -20,7 +20,7 @@ step() { printf '\n=== %s\n' "$*"; }
 SDD="bash .sdd/bin/sdd"
 
 step "init (keeps the example's sdd.toml, does not trust it)"
-bash "$PLUGIN/bin/sdd" init
+bash "$PLUGIN/scripts/sdd.sh" init
 step "check before trust must refuse"
 $SDD check && { echo "UNEXPECTED: ran untrusted"; exit 1; } || true
 step "trust, doctor, analyze"

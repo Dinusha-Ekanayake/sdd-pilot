@@ -84,7 +84,7 @@ BASH = __import__("shutil").which("bash")
     ("command", "asks"), [("bash .sdd/bin/sdd approve 001", True), ("ls", False)]
 )
 def test_the_real_hook_through_the_launcher(repo: Path, command: str, asks: bool) -> None:
-    launcher = Path(__file__).resolve().parent.parent / "bin" / "sdd"
+    launcher = Path(__file__).resolve().parent.parent / "scripts" / "sdd.sh"
     payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
     env = {**os.environ, "CLAUDE_PROJECT_DIR": str(repo)}
     proc = subprocess.run(

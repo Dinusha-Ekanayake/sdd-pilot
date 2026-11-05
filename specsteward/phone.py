@@ -117,6 +117,8 @@ if [ -z "${{{var}:-}}" ] && [ -f "$secrets/{name}.store" ]; then
   fi
   export {var}="$token"
 fi
+# Tells specsteward's shell guard that this session holds a bot token (it never reads it).
+export SDD_PHONE_SESSION=1
 exec claude --plugin-dir "$dir" --channels plugin:{plugin} "$@"
 """
 

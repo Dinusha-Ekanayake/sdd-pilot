@@ -6,7 +6,7 @@ description: Set up specsteward in the current repository - detects the stack an
 # specsteward init
 
 1. Run the launcher from the plugin (two levels above this skill's base directory):
-   `bash "<plugin root>/bin/sdd" init`
+   `bash "<plugin root>/scripts/sdd.sh" init`
    It detects the stack (Python, Node, Go, Rust, or a Makefile) and builds the gate from
    what the project already uses. It never overwrites existing files without `--force`.
    Pass `--preset <name>` only if the user asks for a specific one.

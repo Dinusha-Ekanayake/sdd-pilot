@@ -70,9 +70,9 @@ case "${1:-}" in
     has_config || exit 0
     SDD_HOOK_PAYLOAD="$(cat)"
     case "$SDD_HOOK_PAYLOAD" in
-      *sdd*|*specsteward*|*.claude*|*BOT_TOKEN*) export SDD_HOOK_PAYLOAD ;;
+      *sdd*|*specsteward*|*.claude*|*TOKEN*) export SDD_HOOK_PAYLOAD ;;
       *env*|*set*|*declare*|*compgen*)
-        [ -n "${TELEGRAM_BOT_TOKEN:-}${DISCORD_BOT_TOKEN:-}" ] || exit 0
+        [ -n "${SDD_PHONE_SESSION:-}" ] || exit 0  # set by claude-phone
         export SDD_HOOK_PAYLOAD ;;
       *) exit 0 ;;
     esac
@@ -83,4 +83,4 @@ case "${1:-}" in
 esac
 
 pick_python
-exec "${PYTHON[@]}" "$PLUGIN_ROOT/bin/sdd_entry.py" "$@"
+exec "${PYTHON[@]}" "$PLUGIN_ROOT/scripts/sdd_entry.py" "$@"
