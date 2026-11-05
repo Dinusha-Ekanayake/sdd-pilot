@@ -48,6 +48,17 @@ Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 | Overclaiming wording in regulated domains | Optional banned-phrase scan in the gate |
 | You are away from the laptop | Approvals and answers over Telegram or Discord |
 
+## When to use it
+
+| Use specsteward for | Use plain Claude Code for |
+|---|---|
+| Features of several steps, where you want the plan agreed first and every step tested and reviewed | One-line fixes, renames, quick questions: a spec and an approval would only slow you down |
+| Long runs you do not want to babysit: caps stop loops, halts ask you, and the phone pings you | Exploring or prototyping, where the goal is still moving |
+| Code where a silent wrong guess is costly (data, money, security): risky tasks get the stronger reviewer and an adversarial test | Throwaway scripts |
+| Bugs worth a regression test: `/specsteward:run fix "<bug>"` writes the failing test first | Changes you can check by eye in a minute |
+
+Day to day you use three things: `/specsteward:run plan <topic>`, approve, and `/specsteward:run <NNN>`. The other commands are for the agents or for setup.
+
 ## Install
 
 ### Requirements
