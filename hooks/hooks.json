@@ -8,8 +8,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-session-start"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/session-start.sh"
             ],
             "timeout": 30
           }
@@ -24,8 +23,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-guard"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/guard.sh"
             ],
             "timeout": 30
           }
@@ -38,8 +36,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-shell-guard"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/shell-guard.sh"
             ],
             "timeout": 30
           }
@@ -54,8 +51,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-format"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/format.sh"
             ],
             "timeout": 60
           }
@@ -68,8 +64,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-bind"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/bind.sh"
             ],
             "timeout": 30
           }
@@ -83,8 +78,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-stop"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/stop.sh"
             ],
             "timeout": 30
           }
@@ -98,8 +92,7 @@
             "type": "command",
             "command": "bash",
             "args": [
-              "${CLAUDE_PLUGIN_ROOT}/scripts/sdd.sh",
-              "hook-subagent-stop"
+              "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/subagent-stop.sh"
             ],
             "timeout": 30
           }
