@@ -1,5 +1,5 @@
 {
-  "description": "specsteward: keep an approved run going while it makes progress, guard run state from file edits, format edited files, expose the CLI. No-ops in projects without sdd.toml.",
+  "description": "specsteward: keep an approved run going while it makes progress, guard run state from file edits and shell commands, format edited files, expose the CLI. No-ops in projects without sdd.toml.",
   "hooks": {
     "SessionStart": [
       {
@@ -19,6 +19,16 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-guard",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/bin/sdd\" hook-shell-guard",
             "timeout": 30
           }
         ]
