@@ -37,7 +37,7 @@ Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 | Reviewing everything with the biggest model is expensive | **Risk tags** (`low`, `high`, `human`) pick the reviewer model; high-risk reviews also write one adversarial test |
 | Lint and test output floods the context | One **gate** command prints a 2-line summary plus only the failing lines |
 | Loops that never converge | Halts on the same failure twice, too many fix attempts, a second review round with open findings, an agent-run cap (counted by a hook), or no progress between automatic continues. Resetting a cap needs your permission |
-| Agents working around the gate | Approval is bound to the spec's content; `done` needs a passing gate and a clean review of the current code; gate config changes fail the check; run state cannot be edited |
+| Agents working around the gate | Approval is bound to the spec's content; `done` needs a passing gate and a clean review of the current code; gate config changes fail the check; run state cannot be edited; gate commands and writes to run state ask you however they are spelled |
 | A cloned repo runs commands on your machine | `sdd.toml` commands run only after you trust that exact file |
 | Agent context grows until it drifts | The implementer is restarted every few tasks |
 | Green tests that prove nothing | The reviewer checks that tests would fail if the code were wrong |
@@ -47,6 +47,17 @@ Long agent runs fail in predictable ways. specsteward has a mitigation for each:
 | Project rules forgotten mid-run | `specs/constitution.md`: its MUST rules go into every brief, and the reviewer treats a violation as CRITICAL |
 | Overclaiming wording in regulated domains | Optional banned-phrase scan in the gate |
 | You are away from the laptop | Approvals and answers over Telegram or Discord |
+
+## When to use it
+
+| Use specsteward for | Use plain Claude Code for |
+|---|---|
+| Features of several steps, where you want the plan agreed first and every step tested and reviewed | One-line fixes, renames, quick questions: a spec and an approval would only slow you down |
+| Long runs you do not want to babysit: caps stop loops, halts ask you, and the phone pings you | Exploring or prototyping, where the goal is still moving |
+| Code where a silent wrong guess is costly (data, money, security): risky tasks get the stronger reviewer and an adversarial test | Throwaway scripts |
+| Bugs worth a regression test: `/specsteward:run fix "<bug>"` writes the failing test first | Changes you can check by eye in a minute |
+
+Day to day you use three things: `/specsteward:run plan <topic>`, approve, and `/specsteward:run <NNN>`. The other commands are for the agents or for setup.
 
 ## Install
 
@@ -107,7 +118,13 @@ Tip: run the orchestrating session on Sonnet (`/model sonnet`). Opus is still us
 
 ## Phone control (Telegram or Discord)
 
-specsteward uses Anthropic's official Telegram or Discord channel plugin instead of its own bot. Run `/specsteward:remote` for guided setup, including Bun. See [docs/phone.md](docs/phone.md).
+specsteward uses Anthropic's official Telegram or Discord channel plugin instead of its own bot. Set it up once in a terminal:
+
+```bash
+bash .sdd/bin/sdd phone setup        # --channel discord for Discord
+```
+
+It installs Bun and the plugin, then guides you: create the bot, paste the token, send it one message, confirm it was you. The token goes into your system's credential store, the bot is locked to your account, and from then on you start phone sessions with `claude-phone`. See [docs/phone.md](docs/phone.md).
 
 | You send | Effect |
 |---|---|
@@ -118,7 +135,6 @@ specsteward uses Anthropic's official Telegram or Discord channel plugin instead
 | `resume` / `stop` | Continue / pause |
 | `ship 003` | Commit, push and PR (each still needs your tap on the permission prompt) |
 
-The laptop must stay awake while a run is going.
 
 ## Configuration
 
@@ -138,8 +154,17 @@ Risk is `low`, `high` or `human`. Status is `[ ]` open, `[x]` done, `[?]` waitin
 
 ## CLI
 
-`bash .sdd/bin/sdd <command>` (the shim is created by `init` and refreshed at session start):
-`init`, `doctor`, `trust`, `analyze`, `check`, `brief`, `start`, `approve`, `next`, `agent`, `review`, `done`, `assume`, `halt`, `resume`, `stop`, `status`, `statusline`, `dashboard`, `graph`, `remote`. See [docs/how-it-works.md](docs/how-it-works.md).
+`bash .sdd/bin/sdd <command>` (the shim is created by `init` and refreshed at session start). `sdd --help` lists the commands by purpose:
+
+| Group | Commands |
+|---|---|
+| Setup | `init`, `trust`, `doctor`, `install`, `phone` |
+| Specs | `analyze`, `approve`, `worktree` |
+| Running a spec | `start`, `next`, `halt`, `resume`, `signoff`, `claim`, `stop` |
+| Views and status | `status`, `dashboard`, `statusline`, `graph`, `remote` |
+| Used by the agents | `agent`, `brief`, `check`, `review`, `done`, `assume`, `converge` |
+
+You mostly need the first four groups; the agents call the last one. See [docs/how-it-works.md](docs/how-it-works.md).
 
 ## Security
 
@@ -153,20 +178,20 @@ specsteward collects no telemetry and sends nothing anywhere by itself. Everythi
 
 - The token budget (`[limits] max_tokens`) is checked when a subagent or the session stops, so a run can go a little past it before halting. Cached reads are reported but not counted.
 - One run per checkout, owned by the Claude Code session that started it; another session takes it over with `sdd claim`.
-- Phone control runs in sessions started with `claude-phone`; `sdd phone setup` switches the plugin off elsewhere so ordinary sessions cannot swallow replies.
+- Phone control runs only in sessions started with `claude-phone`; `sdd phone setup` switches the plugin off elsewhere so ordinary sessions cannot swallow replies. The computer must stay on and awake during a run.
 - For parallel specs, `bash .sdd/bin/sdd worktree <NNN>` creates a sibling git worktree on the spec's branch; worktrees share trust and approvals and each keeps its own run.
 - Trust and approvals are tied to the repository's folder path: after moving or renaming it, run `sdd trust` and approve the spec again.
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.
 - Subagents start without conversation context, so briefs matter; check "BRIEF GAPS" in reports.
 - Quality still depends on your tests and spec. Green checks prove consistency, not correctness; the reviewer is a second opinion, not a guarantee.
-- Phone control needs [Bun](https://bun.sh) (installed automatically by `/specsteward:remote`) and a session started with `--channels`.
 
 ## Uninstall
 
 1. `/plugin uninstall specsteward@specsteward` (and `/plugin marketplace remove specsteward`).
 2. In each project: delete `.sdd/` and, if you no longer want them, `sdd.toml`, `specs/_template/`, `specs/constitution.md` and `.graphifyignore`; remove the `bash .sdd/bin/sdd` and `Edit(.sdd/**)` rules from `.claude/settings.json`.
-3. Delete `~/.claude/specsteward/` (trust store and install logs).
-4. Optional, if specsteward installed them: `uv tool uninstall graphifyy` (or `pipx uninstall graphifyy`), and Bun with `brew uninstall bun`, `winget uninstall Oven-sh.Bun`, or by deleting `~/.bun`.
+3. Delete `~/.claude/specsteward/` (trust store, install logs and, on Windows, the encrypted bot token).
+4. If you set up phone control: delete `claude-phone` (and `claude-phone.cmd` on Windows) next to `claude`, remove the token from the macOS Keychain (`security delete-generic-password -s specsteward.telegram`) or your Linux keyring (`secret-tool clear service specsteward.telegram`), and switch the plugin back on for every session with `claude plugin enable telegram@claude-plugins-official` if you want that.
+5. Optional, if specsteward installed them: `uv tool uninstall graphifyy` (or `pipx uninstall graphifyy`), and Bun with `brew uninstall bun`, `winget uninstall Oven-sh.Bun`, or by deleting `~/.bun`.
 
 ## Development
 

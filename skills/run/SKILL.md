@@ -83,7 +83,8 @@ run uses a `fix/<NNN>-*` or `feature/<NNN>-*` branch.
      `SDD approve <NNN> --via <terminal|telegram|discord> --start` (one permission prompt; it
      resumes the run) and continue the loop at step 2.
    Then run the clerk, and a final reviewer on the whole branch with
-   `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary,
+   `model: opus`. Gate **ship**: show and send to the phone the `SDD status` summary, `git diff --stat`
+   against the base branch (what the PR will change),
    tasks waiting for sign-off (`[?]`), the final review findings and the PR draft path
    (`<specs_dir>/<NNN>-*/pr.md`). Stop and wait for "ship <NNN>". On ship, run `SDD check` once
    more; commit only on PASS. Then `SDD stop`.

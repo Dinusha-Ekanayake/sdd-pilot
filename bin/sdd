@@ -64,6 +64,19 @@ case "${1:-}" in
     SDD_HOOK_PAYLOAD="$(cat)"
     case "$SDD_HOOK_PAYLOAD" in *".sdd/bin/sdd"*) export SDD_HOOK_PAYLOAD ;; *) exit 0 ;; esac
     ;;
+  # Runs before every Bash call: Python starts only for commands that could touch a gate,
+  # run state, the trust store or the bot token.
+  hook-shell-guard)
+    has_config || exit 0
+    SDD_HOOK_PAYLOAD="$(cat)"
+    case "$SDD_HOOK_PAYLOAD" in
+      *sdd*|*specsteward*|*.claude*|*BOT_TOKEN*) export SDD_HOOK_PAYLOAD ;;
+      *env*|*set*|*declare*|*compgen*)
+        [ -n "${TELEGRAM_BOT_TOKEN:-}${DISCORD_BOT_TOKEN:-}" ] || exit 0
+        export SDD_HOOK_PAYLOAD ;;
+      *) exit 0 ;;
+    esac
+    ;;
   hook-*) has_config || exit 0 ;;
   # The status line refreshes often; with no run there is nothing to show.
   statusline) { has_config && [ -f "$CONFIG_DIR/.sdd/state.json" ]; } || exit 0 ;;

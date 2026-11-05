@@ -7,6 +7,13 @@
 - In a terminal, `sdd phone setup` is a guided wizard: it asks for the bot token at a hidden prompt and checks it, then for Telegram waits for your first message, asks "Is this you?", locks the bot to that account and sends a test message. It then offers to start `claude-phone`. Telegram setup is now four human steps. `--no-input` keeps the old automatic-only behaviour.
 - The bot token is kept in the operating system's credential store (Windows DPAPI, macOS Keychain, Linux Secret Service) instead of a plain-text file, and `claude-phone` passes it to the plugin as an environment variable at launch. A token already in `~/.claude/channels/<ch>/.env` is moved over when you run `sdd phone setup`. Machines with no credential store keep the owner-only file and are told so. `sdd doctor` warns about a plain-text token where a store exists, and `sdd check` and the format hook strip bot tokens from the environment of project commands.
 
+- A shell-command guard (PreToolUse hook on Bash) asks you before gate commands however they are spelled, before shell writes to run state, the trust store or Claude settings, and before commands that read the bot token. It never denies.
+- The ship gate shows `git diff --stat` against the base branch, so you see what the PR will change.
+
+### Changed
+- `sdd init` recognises Python projects without `pyproject.toml` (`requirements.txt`, `setup.cfg`, `Pipfile`, `tox.ini`, or plain `.py` files and `tests/test_*.py`), so the gate runs the tests from the start instead of needing a hand-edited `sdd.toml`.
+- CI actions are pinned to commit SHAs and do not keep the checkout token.
+
 ### Fixed
 - Approvals, trusted configs and the gate-config baseline no longer break when git converts line endings (CRLF and LF, on Windows or in teams mixing systems): fingerprints use normalized line endings, and records made by 0.2.0 still count.
 

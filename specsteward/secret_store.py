@@ -99,7 +99,7 @@ def _dpapi(data: bytes, protect: bool) -> bytes:
     if sys.platform != "win32":
         raise OSError("DPAPI is only on Windows")
     import ctypes
-    from ctypes import wintypes
+    import ctypes.wintypes as wintypes
 
     class Blob(ctypes.Structure):
         _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]

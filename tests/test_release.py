@@ -31,12 +31,12 @@ def test_generated_config_follows_the_plugins_graphify_pin(tmp_path: Path) -> No
 
 
 def test_concurrent_writers_do_not_lose_records(repo: Path) -> None:
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
 
     def approve(spec: str) -> None:
         try:
             trust.record_approval(repo, spec, f"hash-{spec}")
-        except BaseException as error:  # noqa: BLE001 - surfaced by the assert below
+        except Exception as error:  # noqa: BLE001 - surfaced by the assert below
             errors.append(error)
 
     threads = [threading.Thread(target=approve, args=(f"{n:03d}",)) for n in range(20)]

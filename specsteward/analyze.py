@@ -22,7 +22,16 @@ VAGUE = re.compile(
     re.IGNORECASE,
 )
 PATH = re.compile(r"`([\w.-]+/[\w./-]+\.\w+)`")
-COMMENT = re.compile(r"<!--.*?-->")
+COMMENT = re.compile(r"<!--.*?(?:--!?>|\Z)", re.DOTALL)
+
+
+def without_comments(text: str) -> str:
+    """Template guidance in <!-- --> is not content. Comments may span lines, end in `--!>`,
+    or never close (then they run to the end, as in HTML). Each keeps its line breaks, so
+    findings still point at the right line."""
+    return COMMENT.sub(lambda match: "\n" * match.group().count("\n"), text)
+
+
 ROW = re.compile(r"^\|\s*T-\d{3}-\d{2}\s*\|")
 
 
@@ -39,8 +48,7 @@ def _read(path: Path) -> str:
 
 def _markers(name: str, text: str) -> list[Finding]:
     found = []
-    for number, raw in enumerate(text.splitlines(), start=1):
-        line = COMMENT.sub("", raw)  # template guidance in <!-- --> is not content
+    for number, line in enumerate(without_comments(text).splitlines(), start=1):
         if CLARIFY.search(line):
             found.append(Finding(CRITICAL, f"{name}:{number}", "unresolved clarification"))
         elif PLACEHOLDER.search(line):
@@ -107,7 +115,7 @@ def _duplicates(reqs: dict[str, str]) -> list[Finding]:
 def _section(text: str, heading: str) -> str:
     """The body of a ``## heading`` section, without HTML comments."""
     match = re.search(rf"^## {heading}\s*$(.*?)(?=^## |\Z)", text, re.MULTILINE | re.DOTALL)
-    return COMMENT.sub("", match.group(1)).strip() if match else ""
+    return without_comments(match.group(1)).strip() if match else ""
 
 
 def _fix_checks(spec: str, tasks: str) -> list[Finding]:

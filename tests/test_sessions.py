@@ -206,12 +206,14 @@ def test_same_spec_number_in_two_projects_is_approved_separately(tmp_path: Path)
 
 # --- several sessions running the same bot ------------------------------------------------
 
+BUN_RUN = (
+    r'bun run --cwd "C:/Users/me/.claude/plugins/cache/claude-plugins-official/telegram/0.0.7" '
+    "--shell=bun --silent start"
+)
 WINDOWS_LINES = [
-    r'bun run --cwd "C:/Users/me/.claude/plugins/cache/claude-plugins-official/telegram/0.0.7" '
-    "--shell=bun --silent start",
+    BUN_RUN,
     r'"C:\Users\me\.local\bin\bun.exe" server.ts',
-    r'bun run --cwd "C:/Users/me/.claude/plugins/cache/claude-plugins-official/telegram/0.0.7" '
-    "--shell=bun --silent start",
+    BUN_RUN,
 ]
 POSIX_LINES = [
     "bun run --cwd /home/me/.claude/plugins/cache/claude-plugins-official/discord/0.1.0 start",

@@ -28,6 +28,7 @@ Check commands with a path separator are looked up in the repository; bare names
 | Gate config | During a run, changing a file listed in `[project] guard` fails `sdd check` until you review it and run `sdd trust`. The reviewer also flags new skip, ignore and threshold changes |
 | Run state and settings | A PreToolUse hook denies Edit, Write, MultiEdit and NotebookEdit on `.sdd/`, the trust store and `.claude/settings*.json` (compared by file identity, so aliases are caught); `init` adds matching deny rules. State without the run id `sdd start` recorded is ignored |
 | Repository-shipped files | `{python}` never resolves to a committed virtual environment. specsteward refuses to write through symlinks below the project root |
+| Shell commands | A PreToolUse hook on Bash makes Claude Code **ask you** before a gate command however it is spelled (extra spaces, `./.sdd/...`, `VAR=... bash ...`, `python -m specsteward approve`, chained after another command), before shell commands that write or delete inside `.sdd/`, the trust store or `.claude/settings*.json`, and before commands that read the bot token or list the environment of a session that holds it. It never denies: you decide. Ordinary commands are not touched, and the launcher starts Python only for commands that mention these paths |
 | Caps | Failures are recorded against the group in flight by default, and a SubagentStop hook counts subagents, so the agent cap does not depend on the model reporting them |
 | Commit, push, PR | `git commit`, `git push`, `gh pr create`, `gh pr merge` are `ask` rules. Over a phone channel the prompt is relayed to the paired chat |
 
@@ -36,7 +37,7 @@ Check commands with a path separator are looked up in the repository; bare names
 ## What is not covered
 
 - **The gate runs project code as you.** `sdd check` is allow-listed and runs the project's tests, which the implementer writes. Test code can do anything your account can, including editing the trust store or `.sdd/`. Only Claude Code's sandbox (`"sandbox": {"enabled": true}`, limiting writes to the project) contains that; turn it on for unattended runs. specsteward only makes sure a pass is recorded for the tree the gate actually saw.
-- The guard hook watches file tools. A shell command writing into `.sdd/` is not parsed, but arbitrary shell commands are not allow-listed, so they prompt.
+- The shell guard reads the command text. A command can still hide its target (a script file, an encoded string), so it is a second line of defence: arbitrary shell commands are not allow-listed, so they prompt anyway, and only the sandbox truly contains them.
 - The trust store is a plain file in your home directory. It keeps out file-tool edits from agents, not code that runs as you (see above) or someone with access to your account.
 - The `via` field in `.sdd/approvals.log` is reported by the caller. The permission prompt is the real gate.
 - Review verdicts are reported by the orchestrator from the reviewer's output.
@@ -46,7 +47,7 @@ Check commands with a path separator are looked up in the repository; bare names
 ## Phone channels (Telegram, Discord)
 
 - Pair only your own account and set `/<channel>:access policy allowlist`. `sdd remote` warns if there is more than one allowed user, or groups.
-- The bot token lives in `~/.claude/channels/<channel>/.env`. Do not put it in the repository.
+- The bot token is kept in the operating system's credential store (Windows DPAPI, macOS Keychain, Linux Secret Service) and reaches the plugin as an environment variable only when `claude-phone` starts. Only machines without a credential store keep it in `~/.claude/channels/<channel>/.env` (owner-only), and `sdd doctor` warns about a plain-text token where a store exists. It is never stored in the repository, and `sdd check` and the format hook remove it from the environment of project commands. Details: [phone.md](phone.md#where-the-token-is-kept).
 - Messages from the phone are treated as the user's words, but gates move only on the exact commands in the table, and the final decision is the permission prompt.
 - The orchestrator is told never to send secrets or `.env` files to the chat. Spec and plan files may be sent; do not use phone control for specs you cannot share with that service.
 - Anyone who gets control of your chat account or bot token can message your session. Use two-step verification, and revoke the token (BotFather, or the Discord Developer Portal) if it leaks.

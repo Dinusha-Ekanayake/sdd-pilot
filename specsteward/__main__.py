@@ -28,6 +28,7 @@ from specsteward.hooks import (
 from specsteward.init import enable_statusline, init_project
 from specsteward.presets import PRESETS
 from specsteward.remote import remote_status
+from specsteward.shell_guard import shell_guard_decision
 from specsteward.tasks import parse_tasks
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
@@ -37,6 +38,7 @@ HOOKS = (
     "hook-stop",
     "hook-format",
     "hook-guard",
+    "hook-shell-guard",
     "hook-subagent-stop",
     "hook-session-start",
     "hook-bind",
@@ -266,7 +268,13 @@ def _payload() -> dict[str, object]:
 
 
 def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
-    reads = ("hook-stop", "hook-subagent-stop", "hook-bind", "hook-session-start")
+    reads = (
+        "hook-stop",
+        "hook-subagent-stop",
+        "hook-bind",
+        "hook-session-start",
+        "hook-shell-guard",
+    )
     payload = _payload() if command in reads else {}
     session_id = payload.get("session_id")
     if command in ("hook-stop", "hook-subagent-stop") and payload:
@@ -282,6 +290,10 @@ def _dispatch_hook(command: str, cfg: cfg_mod.Config) -> None:
     elif command == "hook-subagent-stop":
         agent_type = payload.get("agent_type") or payload.get("subagent_type")
         run_state.observe_agent(cfg, agent_type, session_id)
+    elif command == "hook-shell-guard":
+        shell = shell_guard_decision(payload)
+        if shell:
+            print(json.dumps(shell))
     elif command == "hook-guard":
         guard = guard_decision(cfg, json.load(sys.stdin))
         if guard:
@@ -336,7 +348,7 @@ def _statusline() -> int:
             payload = json.load(sys.stdin)
             start = Path(payload.get("workspace", {}).get("project_dir") or start)
         except (ValueError, AttributeError, OSError):
-            pass
+            start = _start_dir()  # no usable payload: the status line falls back to the cwd
     try:
         root = cfg_mod.find_root(start)
         state = run_state.load(root)

@@ -132,3 +132,13 @@ def test_init_writes_a_constitution_once(tmp_path: Path) -> None:
     constitution.write_text("mine\n")
     init_project(tmp_path, "generic")
     assert constitution.read_text() == "mine\n"
+
+
+def test_template_guidance_is_ignored_even_across_lines() -> None:
+    from specsteward.analyze import without_comments
+
+    text = "a\n<!-- guidance\n[NEEDS CLARIFICATION: inside a comment]\n-->\nb <!-- x --!> c\n"
+    stripped = without_comments(text)
+    assert "NEEDS CLARIFICATION" not in stripped and stripped.count("\n") == text.count("\n")
+    assert "b  c" in stripped
+    assert without_comments("x <!-- never closed\n[NEEDS CLARIFICATION: y]") == "x \n"
