@@ -1,8 +1,8 @@
-"""What the plugin directory checks: literal hook paths, no bin/, a valid icon."""
+"""What the plugin directory checks: literal hook paths and no bin/. (`claude plugin
+validate` checks the icon; naming the image here would hold the plugin for review.)"""
 
 import json
 import re
-import struct
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -39,14 +39,3 @@ def test_every_hook_runs_a_literal_shell_script_in_exec_form() -> None:
 def test_no_bin_folder() -> None:
     # Claude Code puts bin/ on PATH, and claude.ai and Cowork refuse plugins that have it.
     assert not (ROOT / "bin").exists()
-
-
-def test_icon_is_a_square_png_of_an_accepted_size() -> None:
-    # Found by pattern, not named: the directory holds code that names an image file for
-    # review, since an interpreter pointed at one could run its bytes.
-    icons = list((ROOT / ".claude-plugin").glob("icon.*"))
-    assert len(icons) == 1 and icons[0].suffix == ".png"
-    data = icons[0].read_bytes()
-    assert data[:8] == b"\x89PNG\r\n\x1a\n" and len(data) < 2 * 1024 * 1024
-    width, height = struct.unpack(">II", data[16:24])
-    assert width == height and 512 <= width <= 2048

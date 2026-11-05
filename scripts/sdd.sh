@@ -3,7 +3,9 @@
 # Override with SDD_PYTHON=/path/to/python.
 set -euo pipefail
 
-PLUGIN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# This script's folder, from its own path (a / or \ separates the folder on Windows).
+HERE="${BASH_SOURCE[0]%[/\\]*}"
+[ "$HERE" = "${BASH_SOURCE[0]}" ] && HERE="."
 
 works() {
   "$@" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1
@@ -46,13 +48,11 @@ pick_python() {
 # have nothing to do, so leave before starting Python (saves ~100 ms per edit and session).
 CONFIG_DIR=""
 has_config() {
-  local dir="${CLAUDE_PROJECT_DIR:-$PWD}"
+  local dir="${CLAUDE_PROJECT_DIR:-.}"
   while :; do
     [ -f "$dir/sdd.toml" ] && CONFIG_DIR="$dir" && return 0
-    local parent
-    parent="$(dirname "$dir")"
-    [ "$parent" = "$dir" ] && return 1
-    dir="$parent"
+    [ "$dir/.." -ef "$dir" ] && return 1  # reached the filesystem root
+    dir="$dir/.."
   done
 }
 
@@ -83,4 +83,4 @@ case "${1:-}" in
 esac
 
 pick_python
-exec "${PYTHON[@]}" "$PLUGIN_ROOT/scripts/sdd_entry.py" "$@"
+exec "${PYTHON[@]}" "$HERE/sdd_entry.py" "$@"
