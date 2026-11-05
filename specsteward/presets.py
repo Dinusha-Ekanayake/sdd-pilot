@@ -32,8 +32,23 @@ class Preset:
     scan: tuple[str, ...]
 
 
+PYTHON_MANIFESTS = (
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "requirements.txt",
+    "Pipfile",
+    "tox.ini",
+)
+
+
+def _has_python_files(root: Path) -> bool:
+    """Plain scripts and a tests/ folder, with no manifest yet: still a Python project."""
+    return any(root.glob("*.py")) or any(root.glob("tests/test_*.py"))
+
+
 def detect_stack(root: Path) -> str:
-    if (root / "pyproject.toml").exists() or (root / "setup.py").exists():
+    if any((root / name).exists() for name in PYTHON_MANIFESTS):
         return "python"
     if (root / "package.json").exists():
         return "node"
@@ -41,6 +56,8 @@ def detect_stack(root: Path) -> str:
         return "go"
     if (root / "Cargo.toml").exists():
         return "rust"
+    if not (root / "Makefile").exists() and _has_python_files(root):
+        return "python"
     return "generic"
 
 

@@ -19,6 +19,9 @@ def _names(root: Path, preset: str = "auto") -> list[str]:
     [
         ("pyproject.toml", "python"),
         ("setup.py", "python"),
+        ("requirements.txt", "python"),
+        ("Pipfile", "python"),
+        ("script.py", "python"),  # plain scripts, no manifest yet
         ("package.json", "node"),
         ("go.mod", "go"),
         ("Cargo.toml", "rust"),
@@ -28,6 +31,15 @@ def _names(root: Path, preset: str = "auto") -> list[str]:
 def test_detect_stack(tmp_path: Path, marker: str, stack: str) -> None:
     (tmp_path / marker).write_text("{}" if marker == "package.json" else "")
     assert detect_stack(tmp_path) == stack
+
+
+def test_a_tests_folder_alone_marks_python_but_a_makefile_wins(tmp_path: Path) -> None:
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_calc.py").write_text("")
+    assert detect_stack(tmp_path) == "python"
+    assert "tests" in _names(tmp_path)  # so the gate proves something from the start
+    (tmp_path / "Makefile").write_text("test:\n\tpytest\n")
+    assert detect_stack(tmp_path) == "generic"  # the Makefile is the project's own entry point
 
 
 def test_python_checks_follow_the_tools_the_project_configures(tmp_path: Path) -> None:
