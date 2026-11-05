@@ -181,8 +181,8 @@ def _remote() -> list[Finding]:
                     WARN,
                     f"{count} {channel.name} servers are running (one per Claude Code session); "
                     "each reply reaches only one of them",
-                    "use phone control in one session only, started with "
-                    f"`claude --channels plugin:{channel.name}@claude-plugins-official`",
+                    f"`sdd phone setup --channel {channel.name}`, restart the other sessions, "
+                    "and use `claude-phone` for phone control",
                 )
             )
         if phone.enabled_everywhere(channel):

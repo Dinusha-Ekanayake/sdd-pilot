@@ -153,7 +153,7 @@ specsteward collects no telemetry and sends nothing anywhere by itself. Everythi
 
 - The token budget (`[limits] max_tokens`) is checked when a subagent or the session stops, so a run can go a little past it before halting. Cached reads are reported but not counted.
 - One run per checkout, owned by the Claude Code session that started it; another session takes it over with `sdd claim`.
-- Phone control talks to one Claude Code session at a time; `sdd doctor` warns when several sessions run the same bot.
+- Phone control runs in sessions started with `claude-phone`; `sdd phone setup` switches the plugin off elsewhere so ordinary sessions cannot swallow replies.
 - For parallel specs, `bash .sdd/bin/sdd worktree <NNN>` creates a sibling git worktree on the spec's branch; worktrees share trust and approvals and each keeps its own run.
 - Trust and approvals are tied to the repository's folder path: after moving or renaming it, run `sdd trust` and approve the spec again.
 - Graphify is installed automatically (pinned version) unless you set `[graphify] auto = false`.

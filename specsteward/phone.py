@@ -2,11 +2,12 @@
 
 Every Claude Code session with a channel plugin enabled (other terminals, VS Code panels)
 starts its own copy of the bot, and Telegram or Discord hands each message to only one of
-them, so replies get lost. The cure is to keep the plugin off by default and turn it on
-only in the session meant for the phone: `claude --settings <file>` enables a plugin for
-that one launch, and `--channels` passes its messages into the session. `sdd phone setup`
-does everything that needs no human, and installs a `claude-phone` command that starts
-such a session.
+them, so replies get lost. The cure is to keep the plugin off by default and load it
+only in the session meant for the phone: `claude --plugin-dir <its folder>` loads a
+plugin that is off elsewhere for that one session (`--settings` cannot switch a disabled
+plugin back on; both verified live), and `--channels` passes its messages into the
+session. `sdd phone setup` does everything that needs no human, and installs a
+`claude-phone` command that starts such a session.
 """
 
 import json
@@ -19,7 +20,6 @@ from pathlib import Path
 
 from specsteward import prereqs
 from specsteward.remote import CHANNELS, Channel, state_dir
-from specsteward.trust import user_dir
 
 MARKETPLACE = "claude-plugins-official"
 LAUNCHER = "claude-phone"
@@ -74,40 +74,50 @@ def plugin_state(channel: Channel, claude: Claude = _claude) -> dict[str, object
     return None
 
 
-def settings_file(channel: Channel) -> Path:
-    """Settings that switch the channel plugin on for one launch only."""
-    return user_dir() / f"phone-{channel.name}.json"
-
-
 def launcher_dir() -> Path:
     """Where the `claude` command itself usually lives, so it is already on PATH."""
     claude = shutil.which("claude")
     return Path(claude).parent if claude else Path.home() / ".local" / "bin"
 
 
+LAUNCHER_SCRIPT = """#!/usr/bin/env bash
+# Written by specsteward (`sdd phone setup`): Claude Code with {name} phone control.
+# The {name} plugin is off in ordinary sessions, so only sessions started here run the bot.
+# It is loaded for this session with --plugin-dir (newest installed version), and
+# --channels passes your messages into the session.
+set -euo pipefail
+# From cmd or PowerShell, Git Bash starts without its own tools on PATH (Windows' sort.exe
+# would answer instead), so the standard Unix tool folders go first.
+export PATH="/usr/bin:/bin:$PATH"
+base="${{CLAUDE_CONFIG_DIR:-$HOME/.claude}}/plugins/cache/{marketplace}/{name}"
+dir="$(ls -d "$base"/*/ 2>/dev/null | sort -V | tail -n 1 || true)"
+if [ -z "$dir" ]; then
+  echo "{launcher}: the {name} plugin is not installed; run \`sdd phone setup\`." >&2
+  exit 1
+fi
+exec claude --plugin-dir "$dir" --channels plugin:{plugin} "$@"
+"""
+
+
 def write_launcher(channel: Channel, directory: Path | None = None) -> list[Path]:
-    """`claude-phone` for bash and, on Windows, `claude-phone.cmd` for cmd and PowerShell."""
+    """`claude-phone` (bash) and, on Windows, `claude-phone.cmd` that runs it from cmd or
+    PowerShell. The plugin folder is looked up each time, so plugin updates do not break it.
+    """
     directory = directory or launcher_dir()
     directory.mkdir(parents=True, exist_ok=True)
-    settings = settings_file(channel)
-    settings.parent.mkdir(parents=True, exist_ok=True)
-    settings.write_text(
-        json.dumps({"enabledPlugins": {plugin_id(channel): True}}, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    channels = f"--channels plugin:{plugin_id(channel)}"
-    note = "Written by specsteward (`sdd phone setup`): Claude Code with phone control."
     script = directory / LAUNCHER
-    bash_line = f'exec claude --settings "{settings.as_posix()}" {channels} "$@"'
-    script.write_text(
-        f"#!/usr/bin/env bash\n# {note}\n{bash_line}\n", encoding="utf-8", newline="\n"
+    text = LAUNCHER_SCRIPT.format(
+        name=channel.name, marketplace=MARKETPLACE, plugin=plugin_id(channel), launcher=LAUNCHER
     )
+    script.write_text(text, encoding="utf-8", newline="\n")
     script.chmod(0o755)
     written = [script]
     if sys.platform == "win32":
         cmd = directory / f"{LAUNCHER}.cmd"
-        cmd_line = f'claude --settings "{settings}" {channels} %*'
-        cmd.write_text(f"@echo off\r\nrem {note}\r\n{cmd_line}\r\n", encoding="utf-8")
+        # The full path of the bash running setup (Git Bash): from cmd or PowerShell a bare
+        # `bash` can resolve to WSL's bash.exe in System32 instead.
+        bash = shutil.which("bash") or "bash"
+        cmd.write_text(f'@echo off\r\n"{bash}" "%~dp0{LAUNCHER}" %*\r\n', encoding="utf-8")
         written.append(cmd)
     return written
 

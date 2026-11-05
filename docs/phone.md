@@ -10,19 +10,26 @@ So when specsteward asks to approve a spec or commit, the prompt arrives on your
 
 ## Setup
 
-`/specsteward:remote` walks through this and checks the result. By hand, with `<ch>` being `telegram` or `discord`:
+Run `/specsteward:remote` in Claude Code, or `bash .sdd/bin/sdd phone setup` (add `--channel discord` for Discord). In one step it:
 
-1. Bun, which runs the channel server: `bash .sdd/bin/sdd install bun`. `/specsteward:remote` does this for you, and every session start does it in the background once phone control is configured. It installs Bun 1.4.4 (pinned) for your user only: with Homebrew on macOS or winget on Windows when available, otherwise with Bun's official script from the pinned release tag, checked against its pinned sha256, and run with the pinned version. It never uses sudo or admin rights. On Linux the script needs `unzip`. Afterwards restart the terminal and Claude Code so `bun` is on PATH.
-2. Create a bot.
+- installs Bun, which runs the channel server (pinned version 1.4.4, for your user only, checksum-verified; on Linux it needs `unzip`);
+- installs the official plugin (`telegram@claude-plugins-official` or `discord@claude-plugins-official`);
+- switches the plugin **off in ordinary sessions**, so other terminals and VS Code panels no longer start their own copy of the bot and swallow your replies;
+- installs a **`claude-phone`** command (next to `claude`; `claude-phone.cmd` too on Windows) that starts Claude Code with the plugin loaded and its channel on.
+
+Then, once:
+
+1. Create a bot.
    - **Telegram:** message **@BotFather**, send `/newbot`, copy the token.
    - **Discord:** in the [Developer Portal](https://discord.com/developers/applications) create an application, add a bot, turn on **Message Content Intent**, copy the token, and invite the bot with the OAuth2 URL the portal generates.
-3. In Claude Code: `/plugin install <ch>@claude-plugins-official`
-4. `/<ch>:configure <token>` (stored in `~/.claude/channels/<ch>/.env`, never in the project)
-5. Restart with the channel on: `claude --channels plugin:<ch>@claude-plugins-official`
-6. DM your bot. It replies with a pairing code. Run `/<ch>:access pair <code>` in the terminal.
-7. Lock it down: `/<ch>:access policy allowlist`
+2. Exit Claude Code and start it with **`claude-phone`** instead of `claude`.
+3. In that session: `/<ch>:configure <token>` (stored in `~/.claude/channels/<ch>/.env`, never in the project).
+4. DM your bot. It replies with a pairing code. Run `/<ch>:access pair <code>` in the terminal.
+5. `bash .sdd/bin/sdd phone lock` so only your account can use the bot.
 
-Check with `bash .sdd/bin/sdd remote`. It reads the channel's `access.json` and reports problems: no token, empty allowlist, more than one allowed user, a policy other than `allowlist`, or groups and server channels. With both channels set up, the ready one is used and the other is listed under `others`.
+From then on, start Claude Code with `claude-phone` whenever you want phone control; any arguments are passed on (`claude-phone --resume`).
+
+Check with `bash .sdd/bin/sdd remote`. It reports problems: no token, empty allowlist, more than one allowed user, a policy other than `allowlist`, or groups and server channels. `bash .sdd/bin/sdd doctor` also warns when the plugin is on in every session or several bots are running.
 
 ## Commands
 
