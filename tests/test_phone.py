@@ -82,6 +82,8 @@ def test_setup_stops_when_bun_cannot_be_installed(
 
 def test_windows_gets_a_cmd_launcher_too(home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(phone.sys, "platform", "win32")
+    # shutil.which itself changes behaviour for "win32" on Python 3.12+; answer for it
+    monkeypatch.setattr(phone.shutil, "which", lambda name: "C:/Program Files/Git/usr/bin/bash.exe")
     written = phone.write_launcher(TELEGRAM, home / "bin")
     assert [p.name for p in written] == ["claude-phone", "claude-phone.cmd"]
     cmd = (home / "bin" / "claude-phone.cmd").read_text(encoding="utf-8")
