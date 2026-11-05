@@ -106,6 +106,10 @@ def _launch(tmp_path: Path, tools: dict[str, str]) -> subprocess.CompletedProces
 def test_launcher_passes_the_stored_token_to_the_session(
     tmp_path: Path, kind: str, tool: str
 ) -> None:
+    if Path("/usr/bin", tool).exists():
+        # The launcher puts /usr/bin first, so a planted tool cannot intercept the token;
+        # here the real one is covered by the real round trip below.
+        pytest.skip(f"the real {tool} takes precedence on this machine")
     secret_store.write_private(secret_store.secrets_dir() / "telegram.store", kind + "\n")
     proc = _launch(tmp_path, {tool: f'echo "{TOKEN}"'})
     assert proc.returncode == 0, proc.stderr
@@ -177,7 +181,24 @@ def test_real_macos_keychain_round_trip() -> None:
         assert secret_store.store(name, TOKEN) == "keychain"
         assert secret_store.load(name) == TOKEN
     finally:
+        secret_store.forget(name)
         subprocess.run(
             ["security", "delete-generic-password", "-s", secret_store.service(name)],
+            capture_output=True, check=False,
+        )  # fmt: skip
+
+
+@pytest.mark.skipif(
+    sys.platform != "darwin" or not os.environ.get("CI"), reason="real Keychain, CI runner only"
+)
+def test_launcher_reads_the_real_macos_keychain(tmp_path: Path) -> None:
+    try:
+        assert secret_store.store("telegram", TOKEN) == "keychain"
+        proc = _launch(tmp_path, {})
+        assert proc.returncode == 0, proc.stderr
+        assert proc.stdout.strip() == f"token={TOKEN}"
+    finally:
+        subprocess.run(
+            ["security", "delete-generic-password", "-s", secret_store.service("telegram")],
             capture_output=True, check=False,
         )  # fmt: skip
