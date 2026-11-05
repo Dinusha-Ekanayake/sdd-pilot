@@ -35,8 +35,8 @@ pick_python() {
   fi
   {
     echo "specsteward: Python 3.11+ not found."
-    echo "  Install it from https://www.python.org/downloads/ , or install uv"
-    echo "  (https://docs.astral.sh/uv/) and specsteward will use a uv-managed Python."
+    echo "  Install Python 3.11 or newer, or install uv and specsteward will use a"
+    echo "  uv-managed Python. The README's Requirements table links to both."
     echo "  Or point SDD_PYTHON at a Python 3.11+ executable."
   } >&2
   exit 127
