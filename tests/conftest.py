@@ -110,3 +110,14 @@ def no_background_graph(monkeypatch: pytest.MonkeyPatch) -> list[Path]:
     monkeypatch.setattr(graph, "_real_start", graph.start_background_sync, raising=False)
     monkeypatch.setattr(graph, "start_background_sync", fake_start)
     return calls
+
+
+@pytest.fixture(autouse=True)
+def private_secrets_folder(
+    tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Tests never read or write the real credential-store markers and Windows blobs."""
+    from specsteward import secret_store
+
+    folder = tmp_path_factory.mktemp("secrets")
+    monkeypatch.setattr(secret_store, "secrets_dir", lambda: folder)

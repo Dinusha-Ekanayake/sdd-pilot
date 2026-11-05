@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from specsteward import secret_store
+
 
 @dataclass(frozen=True)
 class Channel:
@@ -49,16 +51,20 @@ def _token_in(env_file: Path, var: str) -> bool:
 def configured(channel: Channel) -> bool:
     """The user has started this channel's setup: a token or a pairing exists."""
     directory = state_dir(channel)
-    return bool(os.environ.get(channel.token_var)) or any(
-        (directory / name).exists() for name in (".env", "access.json")
+    return (
+        bool(os.environ.get(channel.token_var))
+        or bool(secret_store.stored_in(channel.name))
+        or any((directory / name).exists() for name in (".env", "access.json"))
     )
 
 
 def channel_status(channel: Channel, directory: Path | None = None) -> dict[str, Any]:
     directory = directory or state_dir(channel)
     access_file = directory / "access.json"
-    token_set = bool(os.environ.get(channel.token_var)) or _token_in(
-        directory / ".env", channel.token_var
+    token_set = (
+        bool(os.environ.get(channel.token_var))
+        or bool(secret_store.stored_in(channel.name))
+        or _token_in(directory / ".env", channel.token_var)
     )
     name = channel.name
     if not access_file.exists():
@@ -73,7 +79,9 @@ def channel_status(channel: Channel, directory: Path | None = None) -> dict[str,
     chat_ids = [str(i) for i in access.get("allowFrom", [])]
     problems = []
     if not token_set:
-        problems.append(f"no bot token: run /{name}:configure <token>")
+        problems.append(
+            f"no bot token: run `bash .sdd/bin/sdd phone setup --channel {name}` in a terminal"
+        )
     if not chat_ids:
         problems.append("allowlist is empty: pair your account first")
     if len(chat_ids) > 1:

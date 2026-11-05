@@ -52,5 +52,8 @@ def test_discord_problems_name_its_own_commands(channels: dict[str, Path]) -> No
     access = {"dmPolicy": "pairing", "allowFrom": ["1"], "groups": {"9": {}}}
     (channels["discord"] / "access.json").write_text(json.dumps(access))
     problems = " | ".join(remote.channel_status(discord)["problems"])
-    assert "/discord:configure" in problems and "/discord:access policy allowlist" in problems
+    assert (
+        "phone setup --channel discord" in problems
+        and "/discord:access policy allowlist" in problems
+    )
     assert "server channels" in problems

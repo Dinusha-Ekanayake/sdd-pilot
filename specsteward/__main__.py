@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import NoReturn
 
 from specsteward import config as cfg_mod
-from specsteward import graph, phone, prereqs, trust
+from specsteward import graph, phone, prereqs, trust, wizard
 from specsteward import state as run_state
 from specsteward.analyze import analyze
 from specsteward.analyze import format_findings as format_analysis
@@ -212,6 +212,9 @@ def _parser() -> argparse.ArgumentParser:
     phone_cmd = sub.add_parser("phone", help=_help("phone"))
     phone_cmd.add_argument("action", choices=("setup", "lock"))
     phone_cmd.add_argument("--channel", choices=("telegram", "discord"), default="telegram")
+    phone_cmd.add_argument(
+        "--no-input", action="store_true", help="no questions: only the automatic steps"
+    )
     install = sub.add_parser("install", help=_help("install"))
     install.add_argument("tool", choices=("bun",))
     doctor = sub.add_parser("doctor", help=_help("doctor"))
@@ -311,11 +314,13 @@ def _graph(cfg: cfg_mod.Config, action: str) -> int:
     return 1 if any(line.startswith(("could not", "`graphify")) for line in lines) else 0
 
 
-def _phone(action: str, name: str) -> int:
+def _phone(action: str, name: str, no_input: bool) -> int:
     channel = phone.channel_named(name)
     if action == "lock":
         print(phone.lock(channel))
         return 0
+    if not no_input and wizard.interactive():  # a person at a terminal: guide them through
+        return wizard.run(channel)
     ok, lines = phone.setup(channel)
     print("\n".join(lines))
     if ok:
@@ -454,7 +459,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "statusline":
             return _statusline()
         if args.command == "phone":
-            return _phone(args.action, args.channel)
+            return _phone(args.action, args.channel, args.no_input)
         if args.command == "install":
             ok, message = prereqs.install_bun()
             print(message)

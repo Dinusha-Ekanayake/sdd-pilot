@@ -161,7 +161,7 @@ The gate proves consistency, not correctness. Strengthen the acceptance criteria
 Two things cause this. (1) The session was not started with the channel on: start Claude Code with `claude-phone` (installed by `sdd phone setup`), which passes your messages into the session; a plain `claude` session can still send but never receives. (2) Several sessions run the plugin, for example a terminal and VS Code panels, and the bot hands each message to just one of them. `bash .sdd/bin/sdd phone setup` fixes this for good by switching the plugin off in ordinary sessions, so only `claude-phone` sessions run the bot; `sdd doctor` warns while it is still on everywhere.
 
 **The bot does not answer.**
-Start Claude Code with `claude-phone` (run `bash .sdd/bin/sdd phone setup` first if you do not have it), DM the bot, and pair with `/<channel>:access pair <code>` in the terminal. Run `bash .sdd/bin/sdd remote` to see what is missing.
+Run `bash .sdd/bin/sdd phone setup` in a terminal; it pairs Telegram on your keyboard and checks the token. For Discord, start `claude-phone`, DM the bot, and pair with `/discord:access pair <code>`. Run `bash .sdd/bin/sdd remote` to see what is missing.
 
 **`Bun is missing; phone control needs it`**
 Run `bash .sdd/bin/sdd install bun`.
@@ -174,6 +174,15 @@ On Linux, install `unzip` with your package manager, then `bash .sdd/bin/sdd ins
 
 **`dmPolicy is not 'allowlist'`** / **`more than one user can approve`**
 Lock it down with `bash .sdd/bin/sdd phone lock`, which allows only your paired account.
+
+**`claude-phone: could not read the bot token from the credential store`**
+The keychain entry is gone or locked: on macOS unlock the login Keychain, on Linux make sure your desktop keyring is unlocked. If you moved to a new Windows account or machine, the DPAPI blob cannot be decrypted there. In every case, `bash .sdd/bin/sdd phone setup` again stores the token anew.
+
+**`the telegram bot token is in a plain-text file`** (from `sdd doctor`)
+It was saved by `/telegram:configure` or an older version. Run `bash .sdd/bin/sdd phone setup` in a terminal and keep the bot: it moves the token into the credential store and deletes the plain-text copy.
+
+**Is my bot token safe?**
+It sits in your operating system's credential store, encrypted, and reaches the plugin only when `claude-phone` starts. See [Where the token is kept](phone.md#where-the-token-is-kept) for what that does and does not protect against, and how to replace a leaked token.
 
 **Approvals do not reach the phone while I am away.**
 The computer must stay on and awake during a run (on Windows: Settings > Power, sleep "Never" when plugged in).
