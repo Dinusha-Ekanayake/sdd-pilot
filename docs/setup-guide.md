@@ -112,7 +112,7 @@ Follow the run with `bash .sdd/bin/sdd status`, the status line (`bash .sdd/bin/
 /specsteward:remote
 ```
 
-It installs everything in one step (Bun, the official Telegram or Discord plugin, and a `claude-phone` command) and switches the plugin off in ordinary sessions, so other terminals and VS Code panels cannot swallow your replies. Then you create the bot, start Claude Code with `claude-phone`, paste the token and pair your phone. Details: [phone.md](phone.md).
+It installs everything in one step (Bun, the official Telegram or Discord plugin, and a `claude-phone` command) and switches the plugin off in ordinary sessions, so other terminals and VS Code panels cannot swallow your replies. For the rest, run `bash .sdd/bin/sdd phone setup` in a terminal: create the bot, paste the token, send it one message and press `y`; it locks the bot to you and can start `claude-phone`. Details: [phone.md](phone.md).
 
 ## 8. Optional: run specs in parallel
 

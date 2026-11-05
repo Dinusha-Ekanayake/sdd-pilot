@@ -10,22 +10,26 @@ So when specsteward asks to approve a spec or commit, the prompt arrives on your
 
 ## Setup
 
-Run `/specsteward:remote` in Claude Code, or `bash .sdd/bin/sdd phone setup` (add `--channel discord` for Discord). In one step it:
+In a terminal of your own (not inside Claude Code), in your project:
+
+```bash
+bash .sdd/bin/sdd phone setup            # add --channel discord for Discord
+```
+
+It does everything it can by itself, and walks you through the rest:
 
 - installs Bun, which runs the channel server (pinned version 1.4.4, for your user only, checksum-verified; on Linux it needs `unzip`);
 - installs the official plugin (`telegram@claude-plugins-official` or `discord@claude-plugins-official`);
 - switches the plugin **off in ordinary sessions**, so other terminals and VS Code panels no longer start their own copy of the bot and swallow your replies;
-- installs a **`claude-phone`** command (next to `claude`; `claude-phone.cmd` too on Windows) that starts Claude Code with the plugin loaded and its channel on.
+- installs a **`claude-phone`** command (next to `claude`; `claude-phone.cmd` too on Windows) that starts Claude Code with the plugin loaded and its channel on;
+- tells you how to create the bot (Telegram: [@BotFather](https://t.me/BotFather), `/newbot`), asks you to paste the token at a hidden prompt, checks it with the bot API and saves it to `~/.claude/channels/<ch>/.env` (never in the project);
+- **Telegram:** asks you to send the bot any message, shows who wrote ("Message from @you, account 123. Is this you?"), and on your `y` allows only that account and locks the bot. You confirm on your own keyboard, so a message from someone else can never pair itself. It then sends a test message to your phone;
+- **Discord:** pairing goes through the plugin: in the `claude-phone` session DM the bot, run `/discord:access pair <code>`, then `bash .sdd/bin/sdd phone lock --channel discord`;
+- offers to start `claude-phone` right away.
 
-Then, once:
+So for Telegram you do four things: create the bot, paste the token, send one message, press `y`. Run it again at any time: it keeps a working token and lock, and only asks again for what is missing.
 
-1. Create a bot.
-   - **Telegram:** message **@BotFather**, send `/newbot`, copy the token.
-   - **Discord:** in the [Developer Portal](https://discord.com/developers/applications) create an application, add a bot, turn on **Message Content Intent**, copy the token, and invite the bot with the OAuth2 URL the portal generates.
-2. Exit Claude Code and start it with **`claude-phone`** instead of `claude`.
-3. In that session: `/<ch>:configure <token>` (stored in `~/.claude/channels/<ch>/.env`, never in the project).
-4. DM your bot. It replies with a pairing code. Run `/<ch>:access pair <code>` in the terminal.
-5. `bash .sdd/bin/sdd phone lock` so only your account can use the bot.
+`/specsteward:remote` in Claude Code runs the automatic part and tells you to open a terminal for the rest (Claude Code's own shell cannot take a hidden token). `--no-input` does the same from a script. The by-hand route still works: in a `claude-phone` session run `/<ch>:configure <token>`, DM the bot, `/<ch>:access pair <code>`, then `bash .sdd/bin/sdd phone lock`.
 
 From then on, start Claude Code with `claude-phone` whenever you want phone control; any arguments are passed on (`claude-phone --resume`).
 

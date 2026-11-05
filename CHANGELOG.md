@@ -4,6 +4,7 @@
 
 ### Added
 - `sdd phone setup` (also run by `/specsteward:remote`) sets up phone control in one step: Bun, the official Telegram or Discord plugin, and a `claude-phone` command. It switches the plugin off in ordinary sessions and loads it only in `claude-phone` sessions (`--plugin-dir` plus `--channels`), so other terminals and VS Code panels no longer run competing copies of the bot that swallow replies. `sdd phone lock` restricts the bot to the paired account. `sdd doctor` warns while the plugin is still on in every session.
+- In a terminal, `sdd phone setup` is a guided wizard: it asks for the bot token at a hidden prompt and checks it, then for Telegram waits for your first message, asks "Is this you?", locks the bot to that account and sends a test message. It then offers to start `claude-phone`. Telegram setup is now four human steps. `--no-input` keeps the old automatic-only behaviour.
 
 ### Fixed
 - Approvals, trusted configs and the gate-config baseline no longer break when git converts line endings (CRLF and LF, on Windows or in teams mixing systems): fingerprints use normalized line endings, and records made by 0.2.0 still count.

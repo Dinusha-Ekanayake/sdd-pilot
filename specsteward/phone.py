@@ -166,7 +166,8 @@ def next_steps(channel: Channel) -> list[str]:
             "Message Content Intent, copy the token and invite the bot."
         )
     return [
-        "Now, once:",
+        "Easiest: run `bash .sdd/bin/sdd phone setup` in a terminal of your own; it asks for",
+        "the token, pairs and locks the bot, and starts the phone session. Or by hand, once:",
         f"  1. {bot}",
         f"  2. Exit Claude Code and start it with `{LAUNCHER}` (instead of `claude`).",
         f"  3. In that session: {configure}",

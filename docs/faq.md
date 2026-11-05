@@ -161,7 +161,7 @@ The gate proves consistency, not correctness. Strengthen the acceptance criteria
 Two things cause this. (1) The session was not started with the channel on: start Claude Code with `claude-phone` (installed by `sdd phone setup`), which passes your messages into the session; a plain `claude` session can still send but never receives. (2) Several sessions run the plugin, for example a terminal and VS Code panels, and the bot hands each message to just one of them. `bash .sdd/bin/sdd phone setup` fixes this for good by switching the plugin off in ordinary sessions, so only `claude-phone` sessions run the bot; `sdd doctor` warns while it is still on everywhere.
 
 **The bot does not answer.**
-Start Claude Code with `claude-phone` (run `bash .sdd/bin/sdd phone setup` first if you do not have it), DM the bot, and pair with `/<channel>:access pair <code>` in the terminal. Run `bash .sdd/bin/sdd remote` to see what is missing.
+Run `bash .sdd/bin/sdd phone setup` in a terminal; it pairs Telegram on your keyboard and checks the token. For Discord, start `claude-phone`, DM the bot, and pair with `/discord:access pair <code>`. Run `bash .sdd/bin/sdd remote` to see what is missing.
 
 **`Bun is missing; phone control needs it`**
 Run `bash .sdd/bin/sdd install bun`.
